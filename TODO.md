@@ -5,7 +5,7 @@ Hanya yang masih rusak atau belum diputuskan. Rencana kerja masuk `architecture/
 ## Rilis
 
 - Repo GitHub `rasvanjaya21/agyswap` masih **private**. User berencana menjadikannya public sebelum rilis. Selama private, link Homepage/Repository/Issues di PyPI dan instruksi `uv tool install git+https://github.com/rasvanjaya21/agyswap` di `README.md` tidak bisa dipakai orang lain.
-- Proyek `agyswap` belum ada di PyPI (`https://pypi.org/pypi/agyswap/json` masih 404 per 2026-10-06). Akun PyPI user sudah ada, tapi pending publisher (owner `rasvanjaya21`, repo `agyswap`, workflow `publish.yml`, environment `pypi`) dan environment `pypi` di GitHub belum terkonfirmasi dibuat (lihat `CONTRIBUTING.md`, bagian Releasing).
+- Nama paket PyPI `agyswap-cli` (command tetap `agyswap`): `agyswap` ditolak PyPI karena "too similar" dengan proyek `agy-swap` yang sudah ada. Pending publisher `agyswap-cli` sudah didaftarkan user (owner `rasvanjaya21`, repo `agyswap`, workflow `publish.yml`, environment `pypi`). Nama baru benar-benar terdaftar saat publish pertama berhasil. Environment `pypi` di GitHub sudah dibuat (2026-10-06).
 - Banner di `README.md` memakai path relatif (`.github/assets/banner.webp`), sehingga tidak tampil di halaman PyPI. Ganti ke URL `raw.githubusercontent.com` setelah repo public. Badge `pip` dan `build` juga baru tampil setelah repo public dan rilis pertama terbit.
 - Deskripsi di `pyproject.toml` dan `README.md` menyebut auto rate-limit rotation dan parallel sessions, padahal keduanya belum ada. Dipertahankan atas permintaan user sebagai target; perlu dicek ulang sebelum rilis.
 

@@ -9,7 +9,7 @@
 <p align="center">
     <a href="#"><img src="https://img.shields.io/badge/author-rasvanjaya21-white" alt="author-name"></a>
     <a href="#"><img src="https://img.shields.io/badge/version-0.1.0-blue" alt="project-version"></a>
-    <a href="https://pypi.org/project/agyswap/"><img src="https://img.shields.io/pypi/v/agyswap?label=pip" alt="pypi-version"></a>
+    <a href="https://pypi.org/project/agyswap-cli/"><img src="https://img.shields.io/pypi/v/agyswap-cli?label=pip" alt="pypi-version"></a>
     <a href="https://github.com/rasvanjaya21/agyswap/actions/workflows/ci.yml"><img src="https://github.com/rasvanjaya21/agyswap/actions/workflows/ci.yml/badge.svg" alt="build-status"></a>
 </p>
 
@@ -32,8 +32,8 @@ Python 3.12+ managed with uv. The dashboard uses Textual and Rich; everything el
 ## Installation
 
 ```bash
-$ uv tool install agyswap        # or: pipx install agyswap / pip install agyswap
-$ agyswap --help
+$ uv tool install agyswap-cli    # or: pipx install agyswap-cli / pip install agyswap-cli
+$ agyswap --help                 # the command is still agyswap
 ```
 
 Until the first release is on PyPI, install from GitHub instead:

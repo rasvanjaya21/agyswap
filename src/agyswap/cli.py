@@ -70,6 +70,8 @@ def _secret_tool(*args: str, stdin: str | None = None) -> subprocess.CompletedPr
         return subprocess.run(["secret-tool", *args], input=stdin, capture_output=True, text=True, timeout=30)
     except FileNotFoundError:
         raise SwapError("secret-tool not found. Install libsecret (e.g. `dnf install libsecret`).") from None
+    except subprocess.TimeoutExpired:
+        raise SwapError("keyring did not answer within 30s (locked?). Unlock it and try again.") from None
 
 
 def read_token() -> str | None:
@@ -159,6 +161,9 @@ def collect_usage() -> list[dict]:
             row["pools"], acc["token"] = account_usage(token)
         except (UsageError, KeyError, ValueError) as e:
             row["error"] = str(e)
+        except Exception as e:
+            # The message or traceback of an unexpected error may carry token text; keep the type only.
+            row["error"] = f"unexpected error: {type(e).__name__}"
         return row
 
     slots = sorted(store["accounts"], key=int)

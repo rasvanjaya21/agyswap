@@ -19,6 +19,8 @@ agyswap switches the Google account used by the Antigravity CLI (`agy`) without 
 
 agy keeps its login in the OS keyring as a single OAuth token. agyswap stores a copy of each account's token, and switching writes another account's copy back to the keyring. The next `agy` you start runs as that account.
 
+Inspired by [claude-swap](https://github.com/realiti4/claude-swap).
+
 ## Status
 
 **Usable on Linux.** Adding accounts, switching between them, the quota list, and the interactive dashboard all work, and switching between two real accounts without signing in again has been verified.

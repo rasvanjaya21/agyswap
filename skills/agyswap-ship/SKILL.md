@@ -34,7 +34,7 @@ Keluarkan `GO` atau `NO-GO` dengan blocker, perbaikan yang disarankan, risiko ya
 
 - `uv sync --locked`, `uv run ruff check .`, `uv run ruff format --check .`, `uv run pytest -q`, dan `uv build` lolos.
 - Commit yang akan dirilis sudah di-push (atas persetujuan user), dan CI (`.github/workflows/ci.yml`) untuk commit itu sudah hijau.
-- Isi wheel dicek dengan `python -m zipfile -l dist/*.whl`: hanya `agyswap/` dan `*.dist-info/`. Isi sdist dicek dengan `tar tzf dist/*.tar.gz`: tidak ada `.venv`, `docs/`, `skills/`, `architecture/`, `graphify-out/`, `.claude/`, `.agents/`, atau `accounts.json`.
+- Isi wheel dicek dengan `python -m zipfile -l dist/*.whl`: hanya `agyswap/` dan `agyswap_cli-*.dist-info/`. Isi sdist dicek dengan `tar tzf dist/*.tar.gz`: tidak ada `.venv`, `docs/`, `skills/`, `architecture/`, `graphify-out/`, `.claude/`, `.agents/`, atau `accounts.json`.
 - `git grep -n GOCSPX` kosong: client secret agy tidak pernah masuk repo.
 - Versi hanya ada di `pyproject.toml` (`__init__.py` membacanya lewat `importlib.metadata`). Tag rilis harus sama dengan `v$(uv version --short)`; `publish.yml` menolak tag yang berbeda.
 - Klaim di `README.md` sesuai fitur yang benar-benar ada. Fitur yang belum dibuat disebut di bagian "Status", dan badge versi sama dengan `pyproject.toml`.

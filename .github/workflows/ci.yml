@@ -43,7 +43,7 @@ jobs:
           import glob, zipfile
           (whl,) = glob.glob("dist/*.whl")
           bad = [n for n in zipfile.ZipFile(whl).namelist()
-                 if not n.startswith(("agyswap/", "agyswap-"))]
+                 if not n.startswith(("agyswap/", "agyswap_cli-"))]
           assert not bad, f"unexpected files in wheel: {bad}"
           print(f"{whl}: ok")
           PY

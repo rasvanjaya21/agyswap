@@ -1,94 +1,85 @@
 # Prepare
 
-Ditulis lewat `/agyswap-prepare` pada 2026-10-06, sebelum commit dan rilis pertama. Permintaan user:
+Ditulis lewat `/agyswap-prepare` pada 2026-10-06, setelah review rilis v0.1.0 dan sebelum `/agyswap-commit`. Perubahan yang belum di-commit sejak `82927ef`:
 
-- hapus semua referensi ke proyek referensi dan pembahasan port-nya,
-- pastikan tidak ada informasi pribadi atau spesifik perangkat,
-- siapkan semua yang dibutuhkan untuk commit dan rilis.
+- **Perbaikan blocker ship dan Important review rilis:** `src/agyswap/{cli,usage,tui}.py`, 8 test baru.
+- **Deskripsi paket baru:** `pyproject.toml`, `README.md`.
+- **Fan-out reviewer dipindah dari ship ke review:** `skills/agyswap-{ship,review}/SKILL.md`, `AGENTS.md`.
+- **Catatan:** `architecture/SHIP.md` (baru), `REVIEW.md`, `TODO.md`.
 
 ## 1. TODO.md
 
-- **Diubah:** bagian "Paritas dengan …" menjadi "Fitur yang belum ada". Rujukan ke file proyek referensi dihapus.
-- **Masih berlaku:**
-  - Rilis: repo private, PyPI 404, dan banner.
-  - Fitur yang belum ada: cache/backoff, `auto`, alias/disable/enable/`--strategy`, `--json`, export/import, watch, dan error kuota.
-  - Platform.
-- Referensi `file:line` masih tepat.
+- **Dihapus:**
+  - butir "TEST.md usang" (diperbarui di langkah 3);
+  - sebelumnya di sesi ini: blocker ship 1–3, temuan review diff, dua Important review rilis, dan butir cek `GOCSPX`.
+- **Diperbarui:** referensi `file:line` di "Temuan review rilis" dan "Temuan ship" sesuai kode saat ini. Butir slot/email dan escape markup diberi penjelasan dan perbaikannya. Butir environment `pypi` menjadi: tag `v*` sudah dibatasi, required reviewers dan ruleset tersedia setelah repo public.
+- **Tetap:** semua Suggestion review rilis dan temuan ship, atas keputusan user ("taruh di TODO.md saja dulu").
 
 ## 2. Memory Claude dan Antigravity
 
-Dilewati sesuai aturan 0, karena knowledge Antigravity kosong. Memory Claude baru: `repo-hygiene`, berisi aturan "tanpa referensi proyek referensi dan tanpa data pribadi di repo" beserta alasannya.
+Dilewati sesuai aturan 0, karena sisi Antigravity kosong: tidak ada knowledge item dan tidak ada sesi agyswap di `conversation_summaries.db`. Memory Claude baru di sesi ini: `reply-language` (balas user dalam bahasa Indonesia).
 
-## 3. Yang usang, referensi proyek referensi, dan data pribadi
+## 3. Yang usang
 
-- **Referensi proyek referensi dan port dihapus dari:**
-  - `README.md`, `AGENTS.md`, `TODO.md`
-  - komentar dan docstring di `src/agyswap/cli.py`
-  - bagian agyswap di skill `build`, `review`, dan `spec`
-  - `architecture/OBSERVE.md`, `SPEC.md`, `PLAN.md`, `BUILD.md`, `REVIEW.md`
-- **Perubahan isi:**
-  - Tabel "paritas" di spec `cli-safety` menjadi tabel "Perilaku" agyswap saja.
-  - Ringkasan review paritas lama di `REVIEW.md` dihapus.
-- **Data pribadi atau perangkat yang dihapus:**
-  - path absolut home (rujukan clone lokal, proyek saudara, folder memory Claude di skill prepare),
-  - email akun Google uji (diganti `akun 1`/`akun 2` atau `<email>`),
-  - versi OS, kernel, dan paket (diganti "Linux dengan GNOME Keyring 48"),
-  - nama file log bertanggal, jam dengan zona waktu, dan prefix client ID agy.
-- **Yang tetap**, karena identitas publik untuk rilis: handle GitHub `rasvanjaya21`, email author di `pyproject.toml` dan section Credit di README, URL repo, dan `LICENSE`.
-- **Scan akhir** di luar `docs/` (dan `graphify-out/` setelah dibuat ulang) untuk nama proyek referensi, path home absolut, email akun uji, username perangkat, versi OS, zona waktu, nama log bertanggal, dan client ID: kosong.
-- **Riwayat git:** commit baru memakai email noreply GitHub. Nama author di `Initial commit` yang sudah ada di remote tidak diubah, karena butuh menulis ulang riwayat.
+- **`architecture/TEST.md`:**
+  - 20 test / 61% menjadi 28 test / 82%;
+  - tabel baru untuk 8 test jalur error dan TUI;
+  - daftar jalur yang belum dites disusun ulang, karena TUI sudah tidak 0% dan `_post` sudah dites.
+- **`skills/agyswap-prepare/SKILL.md`:** scan secret `git grep -n -E "GOCSPX|ya29\.|1//0"` tidak pernah bisa kosong, karena regex di `usage.py` ikut cocok. Diganti pola secret lengkap.
+- **Catatan historis yang dibiarkan:** `SHIP.md` mencatat pass NO-GO pertama, dan `BUILD.md` mencatat build lama.
 
 ## 4. Sisa debug
 
-Tidak ada `breakpoint()`, `pdb`, `# TODO`, `skip`/`xfail`, atau file coba-coba. Scan secret hanya mengenai teks pola di skill prepare.
+- Tidak ada `breakpoint()`, `pdb`, `skip`, `xfail`, atau file coba-coba.
+- Harness verifikasi di `/tmp` sudah dihapus.
+- Scan secret pola lengkap: kosong.
 
 ## 5. Docs
 
-- `docs/` (textual 8.2.8, rich 15.0.0, pytest 9.1.1) sama dengan `uv.lock`, dan `.mcp.json` tetap 1:1.
-- `README.md`, `AGENTS.md`, dan `CONTRIBUTING.md` sudah bebas dari referensi proyek referensi dan sesuai perilaku sekarang.
+- **`AGENTS.md`, invariant baru:** tidak ada exception yang boleh lolos dari TUI (crash report Textual mencetak locals). Handler hanya menampilkan teks `SwapError` atau jenis exception, dan memanggil UI di luar `except`. `_post` dan `_secret_tool` memetakan error jaringan dan timeout keyring.
+- **`AGENTS.md`, asal fan-out:** fan-out reviewer berasal dari `commands/ship.md` upstream yang tidak di-vendor, dan sekarang dijalankan di `/agyswap-review`.
+- **`README.md`:** tagline baru tanpa fitur yang belum ada. Bagian Status tidak berubah dan tetap benar.
+- **`docs/`:** textual 8.2.8, rich 15.0.0, pytest 9.1.1, sama dengan `uv.lock`. `.mcp.json` tetap 1:1.
 
 ## 6. Skills
 
-- `uv run python scripts/skills.py`: `agent-skills@1401c8b: updated nothing`. Bagian yang di-vendor tidak berubah.
-- Bagian agyswap:
-  - `agyswap-spec`: butir "paritas" dihapus.
-  - `agyswap-build`: rujukan ke implementasi proyek referensi dihapus.
-  - `agyswap-review`: butir "perbedaan perilaku dengan …" dihapus.
-  - `agyswap-prepare`: path memory Claude dibuat generik.
+- `uv run python scripts/skills.py`: `agent-skills@1401c8b: updated nothing`.
+- **Bagian agyswap yang diubah:**
+  - `agyswap-ship`: hanya cek rilis, semver, GO/NO-GO, dan rollback. NO-GO otomatis tanpa review rilis yang Approve. Scan secret memakai pola lengkap.
+  - `agyswap-review`: cakupan biasa atau rilis, fan-out tiga reviewer, dan verifikasi Critical/Important oleh agent utama.
+  - `agyswap-prepare`: pola scan secret.
 
 ## 7. Pengetahuan
 
-Koreksi user dicatat sebagai memory `repo-hygiene`. Aturan "satu file per tahap" sudah ada di `AGENTS.md` sejak prepare sebelumnya.
+- **Repo:** invariant TUI dan perpindahan fan-out dicatat di `AGENTS.md` dan skill.
+- **User:**
+  - memory `reply-language`;
+  - aturan "agent tidak push atau tag" sudah ada di memory dan `AGENTS.md`.
+- **Keputusan user di sesi ini (tercatat di repo):**
+  - deskripsi paket diganti;
+  - semua Suggestion masuk `TODO.md`;
+  - `auto` menarik untuk siklus berikutnya, dimulai dengan `/agyswap-observe` (file token dengan `--gemini_dir` saat keyring tidak terjangkau, dan respons saat kuota habis).
 
-## 8. Formatter, linter, test, build, dan persiapan rilis
+## 8. Formatter, linter, test, build
 
 | Perintah | Hasil |
 | -------- | ----- |
 | `uv sync --locked` | Audited 15 packages |
-| `uv run ruff format .` | 20 files left unchanged |
+| `uv run ruff format .` | 22 files left unchanged |
 | `uv run ruff check .` | All checks passed |
-| `uv run pytest -q` | 20 passed |
-| `uv build` | `agyswap-0.1.0` wheel dan sdist |
-| `twine check dist/*` | PASSED (wheel dan sdist) |
-
-- **Isi sdist:** `src/agyswap/*`, `tests/test_swap.py`, `README.md`, `LICENSE`, `pyproject.toml`, `uv.lock`, `PKG-INFO`, `.gitignore`.
-- **Isi wheel:** hanya `agyswap/` dan dist-info.
-- **Yang di-ignore dan tidak akan ter-commit:** `.venv`, `.claude`, `.agents`, `dist`, `__pycache__`, `.pytest_cache`, `.ruff_cache`, cache `graphify-out/`.
+| `uv run pytest -q` | 28 passed |
+| `uv build` | `agyswap_cli-0.1.0` wheel dan sdist |
 
 ## 9. Graphify
 
-- `graphify update .` lalu `graphify label . --backend=gemini`: 6 komunitas masih bernama file.
+- `graphify update .` lalu `graphify label . --backend=gemini`: beberapa komunitas masih bernama file (`cli.py`, `docs.py`, `README.md`).
 - `graphify label . --backend=claude-cli`: semua komunitas bernama.
-- Hasil akhir: 701 node, 975 edge, 27 komunitas. `GRAPH_REPORT.md`, `graph.json`, dan `graph.html` bebas dari referensi proyek referensi dan path pribadi.
+- Hasil: 745 node, 1072 edge, 27 komunitas.
 
 ## Uji manual oleh user
 
-Tidak ada.
+Tidak ada yang wajib. Perbaikan sesi ini hanya menyentuh jalur error (jaringan, timeout keyring, TUI), tidak menyentuh `add`, `switch`, atau format store, dan semuanya dites otomatis.
 
-## Blocker rilis (bukan blocker commit)
+## Langkah berikutnya
 
-- Repo masih private.
-- Pending publisher PyPI dan environment `pypi` di GitHub belum terkonfirmasi.
-- Banner README memakai path relatif.
-
-Lihat `TODO.md`, bagian Rilis.
+`/agyswap-commit` → user `git push` dan menunggu CI hijau → `/agyswap-ship`.

@@ -1,16 +1,16 @@
 # Test
 
-Ditulis lewat `/agyswap-test` pada 2026-10-06, setelah build `render-polish` dan `cli-safety`. Suite: `uv run pytest -q` → **20 passed** (termasuk dua test tindak lanjut review).
+Ditulis lewat `/agyswap-test` pada 2026-10-06 dan diperbarui di `/agyswap-prepare` setelah review rilis v0.1.0. Suite: `uv run pytest -q` → **28 passed**.
 
 Coverage diukur ad hoc dengan `uv run --with coverage coverage run --source=src/agyswap -m pytest`, tanpa menambah dependency ke `pyproject.toml`:
 
 | File | Statement | Tercakup | Sebelumnya |
 | ---- | --------- | -------- | ---------- |
-| `src/agyswap/cli.py` | 257 | 85% | 83% |
-| `src/agyswap/usage.py` | 95 | 58% | 58% |
-| `src/agyswap/tui.py` | 91 | 0% (dicek manual lewat Textual pilot) | 0% |
+| `src/agyswap/cli.py` | 266 | 88% | 85% |
+| `src/agyswap/usage.py` | 101 | 76% | 58% |
+| `src/agyswap/tui.py` | 105 | 79% (Textual pilot) | 0% |
 | `src/agyswap/__init__.py`, `__main__.py` | 8 | sebagian | sebagian |
-| **Total** | 451 | **61%** | 59% |
+| **Total** | 480 | **82%** | 61% |
 
 ## Apa yang dibuktikan setiap test
 
@@ -53,18 +53,30 @@ Semua test memakai keyring palsu, store di `tmp_path` (`AGYSWAP_HOME`), dan jari
 
 Test regresi untuk tiga temuan Critical lama, kuota per window, dan bug duplikat slot `--force` terbukti merah terhadap kode lama sebelum diperbaiki (`architecture/BUILD.md`). Dua test hijau sejak awal karena menjaga perilaku yang sudah ada: spasi di ujung, yang dibuktikan lewat mutasi, dan `--force` yang tetap menyelamatkan login.
 
+### Jalur error dan TUI (dari ship dan review rilis v0.1.0)
+
+| Test | Membuktikan |
+| ---- | ----------- |
+| `test_dropped_connection_becomes_a_row_error` | `TimeoutError`, `ConnectionResetError`, `RemoteDisconnected`, dan `IncompleteRead` saat membaca respons menjadi `network error: <Jenis>` di baris akun, bukan traceback |
+| `test_post_keeps_http_errors_for_callers` | `HTTPError` dari `urlopen` tetap sampai ke pemanggil, sehingga `HTTP <code>` (dan cabang `invalid_client`/`invalid_grant`) tetap bekerja |
+| `test_unexpected_usage_error_stays_on_its_row` | error tak terduga di satu akun hanya menjadi `unexpected error: <Jenis>` di barisnya |
+| `test_secret_tool_timeout_is_a_swap_error` | keyring yang tidak menjawab 30 detik menjadi `SwapError` dengan langkah perbaikan |
+| `test_tui_survives_refresh_on_empty_store` | refresh berulang pada store kosong tidak memicu `DuplicateIds` |
+| `test_tui_shows_refresh_error_instead_of_exiting` | `SwapError` saat refresh tampil di status line, app tetap jalan |
+| `test_tui_unexpected_refresh_error_shows_only_its_type` | error lain saat refresh hanya menampilkan jenisnya, tanpa isi pesan |
+| `test_tui_action_error_does_not_close_the_app` | error di aksi `s` hanya menampilkan jenisnya di notifikasi, app tetap jalan |
+
 ## Jalur yang belum dites otomatis
 
-Ini celah coverage, bukan temuan rusak. Urutannya dari risiko tertinggi.
+Ini celah coverage, diurutkan dari risiko tertinggi. Mutasi yang lolos tercatat di `TODO.md`.
 
-- **`usage.fresh_token` (`usage.py:79–110`):** refresh kedaluwarsa, `invalid_client` lalu mencoba secret berikutnya, `invalid_grant` menjadi "token revoked", dan network error. Bisa dites dengan `_post` palsu.
-- **`usage._agy_client_secrets` (`usage.py:51–56`):** binary agy tidak ditemukan. Bisa dites dengan `shutil.which` palsu.
-- **`usage.fetch_pools` network error (`usage.py:123`)** dan **`account_usage` (`usage.py:140`)**.
-- **`cli.collect_usage` cabang error (`cli.py:160`)** dan render baris `✕` (`cli.py:225`).
-- **`cli.cmd_add --slot 0` (`cli.py:135`)**, **`cmd_switch` tanpa akun (`cli.py:258`)**, dan switch ke akun yang sedang aktif (`cli.py:277`).
-- **`cli.cmd_list` dan `cmd_status` (`cli.py:230–245`)**, serta dispatch `main` ke `tui`/`list`/`status` (`cli.py:331–343`).
-- **Pembungkus `secret-tool` dan `pgrep` (`cli.py:69–101`):** sengaja tidak dites otomatis karena menyentuh keyring asli; bisa dites dengan `subprocess.run` palsu.
-- **`tui.py` (0%):** hanya dicek manual lewat Textual pilot. Pilot terakhir di build `cli-safety` memastikan `s` memanggil `cmd_switch('2', False)`, dan `d` lalu `y` memanggil `cmd_remove('2')`.
+- **Guard merge di `collect_usage`** (cek email, cek expiry lebih baru) dan pemakaian token live untuk baris akun aktif.
+- **`usage.fresh_token`**: `invalid_client` lalu mencoba secret berikutnya, `invalid_grant` menjadi "token revoked", dan refresh sukses yang dilanjutkan ke `fetch_pools`.
+- **`flock` di `locked_store`**.
+- **`usage._agy_client_secrets`**: binary agy tidak ditemukan, atau tidak berisi secret.
+- **`cmd_add --slot 0`**, `cmd_switch` tanpa akun, switch ke akun yang sedang aktif, `cmd_list` dan `cmd_status`, serta dispatch `main`.
+- **TUI:** modal `Confirm`, aksi `a` dan `d`, dan render baris akun.
+- **Pembungkus `secret-tool` dan `pgrep`:** hanya jalur timeout yang dites. Sisanya bisa dites dengan `subprocess.run` palsu.
 
 ## Cek manual
 

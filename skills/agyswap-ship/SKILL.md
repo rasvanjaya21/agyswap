@@ -1,6 +1,6 @@
 ---
 name: agyswap-ship
-description: Jalankan checklist pra-rilis agyswap lewat review spesialis paralel, lalu hasilkan keputusan go atau no-go beserta rencana rollback. Gunakan saat menyiapkan rilis ke PyPI.
+description: Jalankan checklist pra-rilis agyswap, tentukan versi, lalu hasilkan keputusan go atau no-go beserta rencana rollback dan perintah tag untuk user. Gunakan saat menyiapkan rilis ke PyPI.
 version: 1.0.0
 ---
 
@@ -10,32 +10,27 @@ Tahap **SHIP** dalam siklus agyswap (`/agyswap-prepare` → `/agyswap-observe` �
 
 SHIP adalah tahap terakhir dan berjalan **setelah** `/agyswap-commit`. Sebelum mulai, pastikan `git status` bersih (semua perubahan sudah di-commit). Kalau belum, hentikan dan minta user menjalankan `/agyswap-prepare` lalu `/agyswap-commit` dulu.
 
-Ini orkestrator fan-out. Tiga spesialis berjalan paralel terhadap perubahan saat ini, lalu agent utama menggabungkan laporan mereka menjadi satu keputusan.
+SHIP hanya mengurus publish dan rilis. Review kode tidak dijalankan di sini; itu tugas `/agyswap-review`, yang menjalankan `code-reviewer`, `security-auditor`, dan `test-engineer` secara paralel. Butir "Code reviewed and approved" di checklist `# Method` dibuktikan oleh `architecture/REVIEW.md`.
 
-## Fase A, fan-out paralel
+## Keputusan
 
-Kirim ketiga panggilan Agent dalam **satu giliran**, kalau tidak paralelismenya hilang. Di Claude Code, `subagent_type` sama dengan nama persona.
+Jalankan semua cek di bawah, tentukan versi, lalu keluarkan `GO` atau `NO-GO` dengan blocker, risiko yang diterima, dan rencana rollback yang wajib ada. Tulis ke `architecture/SHIP.md`.
 
-1. `code-reviewer` — review lima sumbu terhadap perubahan, memakai checklist `/agyswap-review`.
-2. `security-auditor` — kerentanan dan threat model: penyimpanan token di `~/.agyswap/accounts.json`, penulisan keyring, client secret yang dibaca dari binary agy, isi wheel dan sdist, workflow rilis.
-3. `test-engineer` — celah coverage di happy path, edge case, dan jalur error.
+Otomatis `NO-GO` kalau:
 
-Subagent tidak boleh memanggil subagent lain, dan masing-masing hanya mengembalikan laporannya. Di Antigravity (tanpa tool Agent), jalankan ketiga persona berurutan dan perlakukan hasilnya seolah paralel.
+- `architecture/REVIEW.md` bukan review rilis (cakupan sejak tag terakhir, atau seluruh paket kalau belum ada tag), atau verdict-nya bukan Approve;
+- ada commit kode (`src/`, `tests/`, `pyproject.toml`, `uv.lock`, `.github/workflows/`) setelah commit yang mencatat `REVIEW.md` itu;
+- `TODO.md` masih memuat temuan Critical, temuan security Critical/High, atau bagian "Blocker rilis";
+- salah satu cek di bawah gagal.
 
-## Fase B, gabungkan
-
-Agent utama menggabungkan: kualitas kode, security, performance, infrastruktur, dokumentasi. Temuan security Critical atau High otomatis jadi blocker. Accessibility web tidak berlaku; ganti dengan kejelasan pesan CLI dan TUI (binding terlihat di footer, pesan error menyebut langkah perbaikan).
-
-## Fase C, keputusan
-
-Keluarkan `GO` atau `NO-GO` dengan blocker, perbaikan yang disarankan, risiko yang diterima, dan rencana rollback yang wajib ada. Tulis ke `architecture/SHIP.md`.
+Accessibility web tidak berlaku; ganti dengan kejelasan pesan CLI dan TUI (binding terlihat di footer, pesan error menyebut langkah perbaikan).
 
 ## Realitas agyswap yang harus dicek sebelum GO
 
 - `uv sync --locked`, `uv run ruff check .`, `uv run ruff format --check .`, `uv run pytest -q`, dan `uv build` lolos.
 - Commit yang akan dirilis sudah di-push **oleh user sendiri**, dan CI (`.github/workflows/ci.yml`) untuk commit itu sudah hijau. Cek CI secara read-only dengan `gh run list` / `gh run view`.
 - Isi wheel dicek dengan `python -m zipfile -l dist/*.whl`: hanya `agyswap/` dan `agyswap_cli-*.dist-info/`. Isi sdist dicek dengan `tar tzf dist/*.tar.gz`: tidak ada `.venv`, `docs/`, `skills/`, `architecture/`, `graphify-out/`, `.claude/`, `.agents/`, atau `accounts.json`.
-- `git grep -n GOCSPX` kosong: client secret agy tidak pernah masuk repo.
+- `git grep -n -E 'GOCSPX-[A-Za-z0-9_-]{20,}'` kosong: client secret agy tidak pernah masuk repo. (`git grep GOCSPX` biasa selalu cocok dengan regex di `usage.py` dan dokumentasi.)
 - Versi hanya ada di `pyproject.toml` (`__init__.py` membacanya lewat `importlib.metadata`). Tag rilis harus sama dengan `v$(uv version --short)`; `publish.yml` menolak tag yang berbeda.
 - Klaim di `README.md` sesuai fitur yang benar-benar ada. Fitur yang belum dibuat disebut di bagian "Status", dan badge versi sama dengan `pyproject.toml`.
 - `architecture/OBSERVE.md` dibuat untuk versi agy yang masih dipakai (`agy --version`). Kalau agy sudah naik versi, minta user menjalankan `/agyswap-observe` dulu.

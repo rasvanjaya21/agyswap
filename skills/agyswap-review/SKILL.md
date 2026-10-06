@@ -1,6 +1,6 @@
 ---
 name: agyswap-review
-description: Lakukan code review lima sumbu untuk perubahan agyswap — correctness, readability, architecture, security, performance. Gunakan sebelum merge atau commit perubahan apa pun.
+description: Lakukan code review agyswap lewat tiga reviewer paralel (code-reviewer, security-auditor, test-engineer) — correctness, readability, architecture, security, performance, coverage. Gunakan sebelum commit perubahan apa pun dan sebelum rilis.
 version: 1.0.0
 ---
 
@@ -8,7 +8,35 @@ version: 1.0.0
 
 Tahap **REVIEW** dalam siklus agyswap (`/agyswap-prepare` → `/agyswap-observe` → `/agyswap-spec` → `/agyswap-plan` → `/agyswap-build` → `/agyswap-test` → `/agyswap-review` → `/agyswap-prepare` → `/agyswap-commit` → `/agyswap-ship`).
 
-Review perubahan yang di-stage atau commit terakhir di lima sumbu:
+## Cakupan
+
+- **Review biasa:** perubahan yang belum di-commit, yang di-stage, atau commit terakhir.
+- **Review rilis:** siklus ini berakhir dengan `/agyswap-ship`. Cakupannya semua perubahan sejak tag terakhir (`git describe --tags --abbrev=0`), atau seluruh paket (`src/`, `tests/`, `pyproject.toml`, `README.md`, `.github/workflows/`) kalau belum ada tag. Review biasa hanya melihat diff, sehingga bug lama yang tidak tersentuh diff lolos. `/agyswap-ship` menolak rilis tanpa review rilis.
+
+Tulis cakupan yang dipakai di baris pertama `architecture/REVIEW.md`.
+
+## Fan-out paralel
+
+Kirim ketiga panggilan Agent dalam **satu giliran**, supaya berjalan paralel. Di Claude Code, `subagent_type` sama dengan nama persona.
+
+1. `code-reviewer`: lima sumbu di bawah ditambah daftar "Yang wajib dicek".
+2. `security-auditor`: kerentanan dan threat model. Cakupannya penyimpanan token di `~/.agyswap/accounts.json`, penulisan keyring, client secret yang dibaca dari binary agy, dan error yang bisa mencetak token. Untuk review rilis, tambahkan isi wheel dan sdist, workflow rilis, dan audit dependency.
+3. `test-engineer`: celah coverage di happy path, edge case, dan jalur error, diurutkan berdasarkan risiko.
+
+Setiap prompt menyebut aturan `AGENTS.md`:
+
+- hanya baca,
+- tanpa push, restore, atau tag,
+- tanpa keyring sungguhan, `~/.agyswap`, atau jaringan,
+- tanpa mencetak token,
+- tanpa subagent.
+
+Fan-out ini berasal dari `.claude/commands/ship.md` di upstream, yang tidak di-vendor. Di agyswap, fan-out dipindah ke sini supaya `/agyswap-ship` hanya mengurus rilis. Di Antigravity (tanpa tool Agent), jalankan ketiga persona berurutan.
+
+Agent utama menggabungkan laporan, membuang duplikat, dan **memverifikasi sendiri** setiap temuan Critical/Important (dengan membaca kode, test sementara, atau mutasi) sebelum menuliskannya. Temuan security Critical/High dari `security-auditor` dicatat sebagai Critical.
+
+## Lima sumbu
+
 
 1. **Correctness.** Sesuai `architecture/SPEC.md` dan `architecture/OBSERVE.md`, edge case tertangani, test memadai.
 2. **Readability.** Nama jelas, logika lurus, organisasi masuk akal.
@@ -22,7 +50,7 @@ Kategorikan temuan sebagai Critical, Important, atau Suggestion, masing-masing d
 
 - **Kehilangan token.** Jalur apa pun yang bisa menimpa login yang belum punya salinan di store, menimpa slot milik akun lain, atau menulis keyring di luar `cmd_switch`.
 - **Race di store.** Perubahan `accounts.json` yang tidak lewat `locked_store()`, atau read-modify-write yang memegang data lama melewati operasi lambat (jaringan) lalu menyimpan seluruh file.
-- **Kebocoran secret.** Nilai token, refresh token, id token, atau `GOCSPX-…` yang tercetak ke console, masuk pesan error, masuk test, atau ter-commit. Jalankan `git grep -n GOCSPX` dan pastikan kosong.
+- **Kebocoran secret.** Nilai token, refresh token, id token, atau `GOCSPX-…` yang tercetak ke console, masuk pesan error, masuk test, atau ter-commit. Jalankan `git grep -n -E 'GOCSPX-[A-Za-z0-9_-]{20,}'` dan pastikan kosong.
 - **Asumsi tentang agy** yang tidak ada di `architecture/OBSERVE.md`.
 - **Probing keyring** dengan `busctl get-property` berulang (pernah membuat gnome-keyring crash). Yang boleh hanya `secret-tool`.
 - Request jaringan tanpa timeout, tanpa User-Agent, atau tanpa penanganan `HTTPError`/`URLError`.

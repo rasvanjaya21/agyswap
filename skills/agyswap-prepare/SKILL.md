@@ -61,7 +61,7 @@ Aturannya:
 - `breakpoint()`, `pdb`, kode yang di-comment-out, `# TODO` sementara yang sudah selesai.
 - `pytest.mark.skip` atau `xfail` sementara di `tests/`.
 - File coba-coba di root, `src/`, atau `tests/` yang tidak dimaksudkan untuk di-commit, termasuk harness `/tmp` yang terlanjur disalin ke repo.
-- Token, refresh token, atau client secret yang tercetak ke log atau tertinggal di file. Jalankan `git grep -n -E "GOCSPX|ya29\.|1//0"` dan pastikan kosong.
+- Token, refresh token, atau client secret yang tercetak ke log atau tertinggal di file. Jalankan `git grep -n -E 'GOCSPX-[A-Za-z0-9_-]{20,}|ya29\.[A-Za-z0-9_-]{20,}|1//0[A-Za-z0-9_-]{20,}'` dan pastikan kosong. Pola pendek (`GOCSPX` saja) selalu cocok dengan regex di `usage.py` dan dokumentasi.
 
 ## 5. Update docs
 

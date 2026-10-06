@@ -39,7 +39,7 @@ Gaya commit user diturunkan dari 2482 commit di 76 repo (2022–2026). Rincianny
 8. **Tutup dengan ringkasan:** `git log --oneline -<n>` untuk commit yang baru dibuat, dan `git status` untuk memastikan tidak ada yang tertinggal tanpa alasan.
 9. **Tulis `architecture/COMMIT.md`**, menggantikan isi sebelumnya: daftar commit yang baru dibuat (hash, pesan, file per commit), alasan pengelompokan, dan file yang sengaja tidak di-commit beserta alasannya. File ini ikut di-commit di commit terakhir.
 
-Jangan push kecuali user memintanya.
+**Jangan pernah push**, termasuk kalau user tampak setuju. Jangan juga menjalankan `git restore`, `reset`, `checkout -- <path>`, `clean`, `revert`, `rebase`, atau operasi force. User yang menjalankan push sendiri; cukup tuliskan perintahnya.
 
 ## Aturan pesan
 

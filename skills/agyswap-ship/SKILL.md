@@ -33,7 +33,7 @@ Keluarkan `GO` atau `NO-GO` dengan blocker, perbaikan yang disarankan, risiko ya
 ## Realitas agyswap yang harus dicek sebelum GO
 
 - `uv sync --locked`, `uv run ruff check .`, `uv run ruff format --check .`, `uv run pytest -q`, dan `uv build` lolos.
-- Commit yang akan dirilis sudah di-push (atas persetujuan user), dan CI (`.github/workflows/ci.yml`) untuk commit itu sudah hijau.
+- Commit yang akan dirilis sudah di-push **oleh user sendiri**, dan CI (`.github/workflows/ci.yml`) untuk commit itu sudah hijau. Cek CI secara read-only dengan `gh run list` / `gh run view`.
 - Isi wheel dicek dengan `python -m zipfile -l dist/*.whl`: hanya `agyswap/` dan `agyswap_cli-*.dist-info/`. Isi sdist dicek dengan `tar tzf dist/*.tar.gz`: tidak ada `.venv`, `docs/`, `skills/`, `architecture/`, `graphify-out/`, `.claude/`, `.agents/`, atau `accounts.json`.
 - `git grep -n GOCSPX` kosong: client secret agy tidak pernah masuk repo.
 - Versi hanya ada di `pyproject.toml` (`__init__.py` membacanya lewat `importlib.metadata`). Tag rilis harus sama dengan `v$(uv version --short)`; `publish.yml` menolak tag yang berbeda.
@@ -60,7 +60,7 @@ Nilai berdasarkan **perubahan yang dirasakan pemakai**, bukan hanya type commit.
 
 ## Cara rilis
 
-Setelah `GO`, versi disetujui, dan persetujuan eksplisit user:
+Setelah `GO` dan versi disetujui, agent **hanya** membuat commit rilis (bump versi, `uv lock`, badge README). Push branch dan push tag **selalu dijalankan user sendiri**; agent cukup menuliskan perintahnya:
 
 ```bash
 uv version --bump minor        # sesuai keputusan: major / minor / patch; lewati untuk rilis pertama
@@ -78,7 +78,7 @@ git push origin "v$(uv version --short)"
 - Badge versi di `README.md` (`version-X.Y.Z`) diperbarui di commit rilis yang sama.
 - Tag `v*` memicu `.github/workflows/publish.yml`: cek versi, test, build, publish ke PyPI lewat trusted publishing, lalu membuat GitHub release.
 
-**Jangan pernah mem-push commit rilis atau tag rilis** tanpa persetujuan eksplisit user. Push tag langsung memicu publish ke PyPI, dan itu tidak bisa dibatalkan.
+**Agent tidak pernah menjalankan `git push` atau `git tag`/push tag**, juga `restore`, `reset`, `clean`, `revert`, `rebase`, atau operasi force, walaupun user tampak setuju. Push tag langsung memicu publish ke PyPI, dan itu tidak bisa dibatalkan.
 
 Catat versi yang dipilih, daftar commit beserta kategorinya, dan hasil publish di `architecture/SHIP.md`.
 

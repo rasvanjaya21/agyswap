@@ -1,7 +1,7 @@
 [project]
 name = "agyswap-cli"
 version = "0.1.0"
-description = "Switch between multiple Antigravity accounts, with automatic rate-limit rotation, usage dashboard, and parallel sessions"
+description = "Switch between multiple Antigravity CLI accounts, with a quota dashboard for every account"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [

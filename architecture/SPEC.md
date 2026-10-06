@@ -86,7 +86,7 @@ skills/, scripts/, docs/, graphify-out/   tooling agent (lihat AGENTS.md)
 
 ### Distribusi dan dokumentasi
 
-- Nama paket PyPI `agyswap` (belum terdaftar), versi hanya di `pyproject.toml`. `uv build` menghasilkan wheel berisi `agyswap/` saja.
+- Nama paket PyPI `agyswap-cli` (belum terdaftar; `agyswap` ditolak PyPI karena terlalu mirip proyek lain), command tetap `agyswap`, versi hanya di `pyproject.toml`. `uv build` menghasilkan wheel berisi `agyswap/` saja.
 - Rilis lewat tag `v*`: `.github/workflows/publish.yml` menjalankan test, build, publish ke PyPI (trusted publishing), dan membuat GitHub release. CI (`ci.yml`) menjalankan ruff, pytest, dan build di Python 3.12–3.14.
 - `README.md` mengikuti format README user: banner `.github/assets/banner.webp`, tagline, badge author, versi, pip, dan build, lalu Description, Status, Techstacks, Installation, Configuration, Usage, Development, Testing, Deployment, Architecture, Credit, dan Member.
 
@@ -133,7 +133,7 @@ Diambil dari `TODO.md`; masing-masing butuh spec sendiri sebelum dikerjakan:
 
 1. **Fitur yang belum ada:** cache dan backoff 429, auto-switch (hanya efektif di antara sesi agy), alias, disable/enable, `--strategy`, `--json`, konfirmasi `remove` di CLI, export/import, layar watch, arti `--force`, dan exit code bare non-TTY.
 2. **Sesi paralel per akun (`run`).** Belum mungkin: `--gemini_dir` tidak mengisolasi token, dan path file token fallback belum terobservasi.
-3. **Rilis.** Repo masih private, `agyswap` belum terdaftar di PyPI, dan pending publisher belum terkonfirmasi. Banner README memakai path relatif sehingga tidak tampil di PyPI.
+3. **Rilis.** Repo masih private, `agyswap-cli` belum terdaftar di PyPI, dan pending publisher belum terkonfirmasi. Banner README memakai path relatif sehingga tidak tampil di PyPI.
 4. **Deskripsi proyek** menyebut rotasi otomatis dan sesi paralel sebagai target, padahal keduanya belum ada.
 
 ---

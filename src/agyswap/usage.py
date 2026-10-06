@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import http.client
 import json
 import re
 import shutil
@@ -67,8 +68,14 @@ def parse_time(s: str) -> datetime | None:
 def _post(url: str, data: bytes, headers: dict | None = None) -> dict:
     # Cloud Code rejects the default Python-urllib agent with 403.
     req = urllib.request.Request(url, data=data, headers={"User-Agent": "antigravity", **(headers or {})})
-    with urllib.request.urlopen(req, timeout=20) as r:
-        return json.load(r)
+    try:
+        with urllib.request.urlopen(req, timeout=20) as r:
+            return json.load(r)
+    except urllib.error.URLError:
+        raise  # callers map HTTP and connect errors
+    except (OSError, http.client.HTTPException) as e:
+        # urlopen only wraps connect errors; a timeout or reset while reading comes through raw.
+        raise UsageError(f"network error: {type(e).__name__}") from None
 
 
 def fresh_token(token: str) -> str:

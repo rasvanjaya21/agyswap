@@ -1,5 +1,5 @@
 [project]
-name = "agyswap"
+name = "agyswap-cli"
 version = "0.1.0"
 description = "Switch between multiple Antigravity accounts, with automatic rate-limit rotation, usage dashboard, and parallel sessions"
 readme = "README.md"

@@ -1,0 +1,16 @@
+{
+	"mcpServers": {
+		"textual": {
+			"command": "bunx",
+			"args": ["--bun", "mcp-remote@0.14.3", "https://gitmcp.io/Textualize/textual"]
+		},
+		"rich": {
+			"command": "bunx",
+			"args": ["--bun", "mcp-remote@0.14.3", "https://gitmcp.io/Textualize/rich"]
+		},
+		"pytest": {
+			"command": "bunx",
+			"args": ["--bun", "mcp-remote@0.14.3", "https://gitmcp.io/pytest-dev/pytest"]
+		}
+	}
+}

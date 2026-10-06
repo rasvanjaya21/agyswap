@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from rich.markup import escape
 from textual import work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -115,7 +116,17 @@ class AgySwapApp(App):
     @work(thread=True, exclusive=True)
     def action_refresh(self) -> None:
         self.call_from_thread(self._status, "[dim]⟳ refreshing usage…[/]")
-        rows = cli.collect_usage()
+        # Textual's crash report prints locals, and these hold tokens; show the type only. The UI
+        # calls stay outside the except blocks so a failing call never chains the original error.
+        try:
+            rows, err = cli.collect_usage(), None
+        except cli.SwapError as e:
+            rows, err = [], escape(str(e))
+        except Exception as e:
+            rows, err = [], f"refresh failed: {type(e).__name__}"
+        if err is not None:
+            self.call_from_thread(self._status, f"[$error]{err}[/]")
+            return
         self.call_from_thread(self._show, rows)
 
     def _show(self, rows: list[dict]) -> None:
@@ -133,9 +144,7 @@ class AgySwapApp(App):
                 f"  ·  refreshes every {REFRESH_SECS // 60} min"
             )
         else:
-            lv.append(
-                ListItem(Static("No accounts yet.\nIn agy: /logout, sign in, exit. Then press [b]a[/b]."), id="empty")
-            )
+            lv.append(ListItem(Static("No accounts yet.\nIn agy: /logout, sign in, exit. Then press [b]a[/b].")))
             self._status("")
 
     def _status(self, msg: str) -> None:
@@ -147,11 +156,16 @@ class AgySwapApp(App):
 
     def _run(self, fn, *args) -> bool:
         try:
-            self.notify(fn(*args))
-            return True
+            msg, err = fn(*args), None
         except cli.SwapError as e:
-            self.notify(str(e), severity="error", timeout=8)
+            msg, err = None, str(e)
+        except Exception as e:
+            msg, err = None, f"failed: {type(e).__name__}"
+        if err is not None:
+            self.notify(err, severity="error", timeout=8)
             return False
+        self.notify(msg)
+        return True
 
     # --- actions ----------------------------------------------------------
 

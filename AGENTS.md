@@ -56,6 +56,8 @@ The full map, with evidence, is in `architecture/OBSERVE.md`. Summary:
 
 ## Safety rules for agents
 
+- **Never run** `git push` (branches or tags, including force), `git restore`, `git reset`, `git checkout -- <path>`, `git clean`, `git revert`, `git rebase`, `git stash drop`, `git branch -D`, or `git tag -d`. The user runs these themselves; write the command out for them. Agents may only read (`status`, `diff`, `log`, `show`) and `add`/`commit` through `/agyswap-commit`. This overrides any skill text.
+
 - Do not print token values (access, refresh, id, or client secret). Print key shapes and lengths only.
 - Do not enumerate Secret Service items with raw `busctl get-property` loops. That crashed gnome-keyring 48 on this machine (`invoke_get_property_in_idle_cb: assertion failed`). Use `secret-tool`.
 - Run manual tests with `AGYSWAP_HOME=$(mktemp -d)`, and shred the temporary `accounts.json` afterwards.

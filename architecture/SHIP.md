@@ -1,105 +1,105 @@
 # Ship: v0.1.0 (rilis pertama)
 
-Ditulis lewat `/agyswap-ship` pada 2026-10-06. Tiga spesialis berjalan paralel (`code-reviewer`, `security-auditor`, `test-engineer`) terhadap seluruh paket, karena belum ada tag rilis.
+Ditulis lewat `/agyswap-ship` pada 2026-10-06. Cek dijalankan pada commit `f6ebb3f` (`origin/master`); tag mengenai commit README sesudahnya (lihat "Cara rilis").
 
-## Keputusan: **NO-GO**
+## Keputusan: **GO**
 
-Satu crash Critical di TUI dan satu crash jaringan yang bisa mencetak secret ke terminal. Keduanya kecil untuk diperbaiki, tapi langsung terlihat pemakai baru. Tidak ada jalur yang menghilangkan token.
+Semua cek lolos, review rilis Approve, dan tidak ada temuan Critical atau security Critical/High yang terbuka.
 
-## Blocker
+## Riwayat
 
-1. **TUI crash saat refresh dengan store kosong** (`src/agyswap/tui.py:125`, `:137`). `lv.clear()` tidak menunggu item lama terhapus, lalu `ListItem(..., id="empty")` ditambahkan lagi dengan id yang sama, sehingga muncul `DuplicateIds` dan worker refresh menutup app. Ini terjadi pada pemakai tanpa akun yang menekan `r`, setelah refresh otomatis 2 menit, atau setelah akun terakhir dihapus. Ditemukan `code-reviewer` dan direproduksi dengan Textual pilot; penyebabnya juga dicek di kode. **Perbaikan:** hapus `id="empty"` (tidak ada yang meng-query id itu), lalu tambah test pilot yang me-refresh dua kali pada store kosong.
-2. **Error jaringan saat membaca respons lolos dari penanganan error** (`src/agyswap/usage.py:70`, `cli.py:160`). `urlopen` hanya membungkus error saat request dikirim ke dalam `URLError`. `TimeoutError`, `ConnectionResetError`, dan `RemoteDisconnected` saat membaca respons keluar mentah. Akibatnya `agyswap list` mencetak traceback dan TUI tertutup. Ketiga spesialis menemukannya secara terpisah, dan semuanya membuktikannya dengan test sementara. Menurut `security-auditor` (Medium), traceback Textual (`show_locals=True`) mencetak client secret lengkap dan 80 karakter refresh token ke terminal. Karena itu temuan ini diperlakukan sebagai blocker. **Perbaikan:** di `_post`, tangkap `OSError` di luar `URLError` dan ubah menjadi `UsageError(f"network error: {type(e).__name__}")`. `action_refresh` juga harus menangkap `SwapError`/`UsageError` dan menampilkannya di status line. Tambah test `_post` yang melempar `TimeoutError`.
-3. **Deskripsi paket mengklaim fitur yang belum ada** (`pyproject.toml:4`, `README.md:6`). Teks "automatic rate-limit rotation" dan "parallel sessions" masuk ke halaman PyPI, padahal bagian Status di README sendiri bilang keduanya belum ada. Teks ini dipertahankan atas permintaan user dengan catatan "dicek ulang sebelum rilis". **Keputusan user:** ubah deskripsinya sekarang, atau terima sebagai risiko.
-
-## Perbaikan yang disarankan (tidak memblokir)
-
-| Sumber | Temuan | Lokasi |
-| ------ | ------ | ------ |
-| security (Medium) | Action di `publish.yml` di-pin ke tag, bukan SHA. `id-token: write` dan `contents: write` ada di satu job yang juga menjalankan test. Pin ke SHA, lalu pisahkan job `build` / `publish` / `release`. | `.github/workflows/publish.yml` |
-| code | Switch, add, dan remove berjalan di thread UI, sehingga keyring yang terkunci membekukan TUI. Pindahkan ke `@work(thread=True)`. | `src/agyswap/tui.py:148-177` |
-| code | Refresh pertama bisa membaca binary agy (~210 MB) sampai 8 kali bersamaan, karena `lru_cache` tidak mencegah pemanggilan paralel. Panggil `_agy_client_secrets()` sekali sebelum thread pool dimulai. | `usage.py:47-56`, `cli.py:165` |
-| security, code (Low) | `save_store` tanpa `fsync`. Nama temp `accounts.tmp` mudah ditebak dan dibuka tanpa `O_EXCL`/`O_NOFOLLOW`. `.lock` dibuka dengan `"w"`. Pakai `tempfile.mkstemp` dan `fsync`, lalu buka lock dengan `O_NOFOLLOW`. | `cli.py:50-64` |
-| test | `accounts.json` yang rusak menghasilkan traceback `JSONDecodeError`. | `cli.py` `load_store` |
-| code | Lookup `secret-tool` yang gagal dianggap "tidak login". Belum terbukti bisa terjadi bersamaan dengan store yang berhasil. | `cli.py:77` |
-| security (Low) | `ci.yml` tanpa `permissions: contents: read`, dan checkout tanpa `persist-credentials: false`. | `.github/workflows/ci.yml` |
-| security (Low) | Header `Authorization` ikut terkirim saat redirect (teoretis). | `usage.py:69` |
-| code | `collect_usage` menulis ulang store setiap refresh walaupun tidak ada yang berubah. | `cli.py:176` |
-| test | `fresh_token` (`usage.py:79-110`) dan `tui.py` (0%) belum punya test. Cabang `fresh_token` sudah dicek benar dengan test sementara. | |
-| code | Cek "`git grep -n GOCSPX` kosong" di skill ship tidak pernah bisa lolos, karena regex di `usage.py:56` dan dokumentasi ikut cocok. Ganti dengan pola secret lengkap (`GOCSPX-[A-Za-z0-9_-]{20,}`). | `skills/agyswap-ship/SKILL.md` |
+1. **Pass ship pertama (NO-GO), di HEAD `82927ef`.** Saat itu skill ship masih menjalankan fan-out tiga reviewer, dan ditemukan tiga blocker:
+   - TUI crash `DuplicateIds` pada store kosong;
+   - error jaringan saat membaca respons keluar sebagai traceback, dan di TUI ikut mencetak client secret;
+   - deskripsi paket mengklaim fitur yang belum ada.
+2. **Ketiganya diperbaiki atau diputuskan user:**
+   - `d282307`, `8583b6a`, `85be519`, `9ff4cd1`;
+   - deskripsi diganti di `c0f318c` dan `8ba1a96`.
+3. **Fan-out reviewer dipindah ke `/agyswap-review`** atas keputusan user (`2c8663b`). Ship sekarang hanya mengurus rilis.
+4. **Review rilis seluruh paket:** dua Important (crash aksi TUI saat keyring timeout, dan exception chaining di handler refresh) diperbaiki sebelum commit. Verdict akhir **Approve** (`architecture/REVIEW.md`). Semua Suggestion masuk `TODO.md` atas keputusan user.
 
 ## Cek sebelum GO
 
 | Cek | Hasil |
 | --- | ----- |
+| `git status` | bersih |
+| Push dan CI | HEAD `f6ebb3f` = `origin/master`, dipush user. CI `f6ebb3f`: success |
+| Review rilis | `REVIEW.md` bercakupan rilis (seluruh paket), verdict Approve, dicatat di `f6ebb3f` |
+| Commit kode setelah review | 0 |
+| `TODO.md` | tidak ada Critical, security Critical/High, atau "Blocker rilis" |
 | `uv sync --locked` | lolos |
-| `uv run ruff check .`, `ruff format --check .` | lolos (21 file) |
-| `uv run pytest -q` | 20 passed |
+| `uv run ruff check .`, `ruff format --check .` | lolos (22 file) |
+| `uv run pytest -q` | 28 passed |
 | `uv build` | `agyswap_cli-0.1.0` wheel dan sdist |
 | Isi wheel | hanya `agyswap/` dan `agyswap_cli-0.1.0.dist-info/` |
-| Isi sdist | tidak ada `.venv`, `docs/`, `skills/`, `architecture/`, `graphify-out/`, `.claude/`, `.agents/`, `accounts.json` |
-| Secret di repo | tidak ada nilai secret. Kecocokan `GOCSPX` hanya regex dan teks dokumentasi. |
-| `pip-audit` (lock) | No known vulnerabilities |
-| Versi | `pyproject.toml` 0.1.0, badge README `version-0.1.0`, `__init__` lewat `importlib.metadata` |
+| Isi sdist | tanpa `.venv`, `docs/`, `skills/`, `architecture/`, `graphify-out/`, `.claude/`, `.agents/`, `accounts.json` |
+| `git grep -n -E 'GOCSPX-[A-Za-z0-9_-]{20,}'` | kosong |
+| `pip-audit` (`uv export --all-groups --no-emit-project`) | No known vulnerabilities found |
+| Versi | `pyproject.toml` 0.1.0, badge README `version-0.1.0`, belum ada tag |
 | agy | 1.3.0, sama dengan `architecture/OBSERVE.md` |
-| Uji manual dua akun | sudah (`architecture/TEST.md`) |
-| Push dan CI | **belum**: remote `master` = `5e2f7b7` (CI hijau), HEAD lokal `82927ef` masih 3 commit di depan |
+| Uji manual dua akun | sudah (`architecture/TEST.md`). Perubahan sejak itu hanya jalur error, tanpa perubahan `add`, `switch`, atau format store |
+| Environment `pypi` | dibatasi ke tag `v*`. Required reviewers menunggu repo public |
 
-## CLI dan TUI (pengganti accessibility)
-
-Binding terlihat di footer. Pesan error `SwapError` menyebut langkah perbaikan. Pengecualian: crash pada blocker 1 dan 2 tidak menampilkan pesan, hanya traceback.
+**CLI dan TUI (pengganti accessibility):**
+- Binding terlihat di footer.
+- Pesan error menyebut langkah perbaikan, misalnya `secret-tool not found. Install libsecret …` dan `keyring did not answer within 30s (locked?). Unlock it and try again.`
+- Error tak terduga hanya menampilkan jenisnya, tanpa traceback.
 
 ## Versi
 
-Belum ada tag, jadi ini rilis pertama: **0.1.0** tanpa bump dan tanpa commit rilis. Semua 28 commit sejak `Initial commit` membentuk kemampuan awal:
+Belum ada tag, jadi ini rilis pertama: **0.1.0**, tanpa bump dan tanpa commit rilis. Seluruh 38 commit sejak `Initial commit` membentuk kemampuan awal:
 
-- **Kemampuan (feat):**
-  - `vcs`, `package`, `lock`, `src`, `usage`, `cli`, `tui`, `test`, `workflow`, `docs`, `mcp`, `skill`,
-  - rename distribusi `agyswap-cli`: `package`, `lock`, `src`, `workflow`, `skill`.
-- **Dokumentasi (docs):** `project`, `agents`, `architecture`.
-- **Artefak (chore):** `graph`.
+| Kategori | Commit |
+| -------- | ------ |
+| Kemampuan awal (minor, diserap rilis pertama) | `feat` untuk `vcs`, `package`, `lock`, `src`, `usage`, `cli`, `tui`, `test`, `workflow`, `docs`, `mcp`, `skill`; rename distribusi `agyswap-cli` |
+| Perbaikan (patch) | `fix(usage)`, `fix(cli)`, `fix(tui)` |
+| Docs, skill, artefak (patch) | `docs(project)`, `docs(agents)`, `docs(architecture)`, `feat(skill)`, `chore(graph)` |
 
 Versi akhir tetap keputusan user.
 
-## Risiko yang diterima (setelah blocker diperbaiki)
+## Risiko yang diterima
 
-- Repo masih private. Link di PyPI dan banner relatif README tidak tampil sampai repo public (`TODO.md`, bagian Rilis).
-- Hanya Linux. `auto` dan `run` belum ada; README menyebutnya di bagian Status.
+- Suggestion review rilis dan temuan ship lama di `TODO.md`, antara lain:
+  - slot dari baris lama di TUI;
+  - escape markup;
+  - exit code `list`;
+  - mutasi yang lolos;
+  - `hatchling` belum di-pin;
+  - action workflow belum di-pin ke SHA;
+  - `save_store` tanpa `fsync`;
+  - aksi TUI di thread UI.
+- Repo masih private. Link di PyPI dan banner relatif README belum tampil sampai repo public.
+- Hanya Linux. `auto` dan `run` belum ada; disebut di bagian Status README.
+- Email author `rasvanjaya21@gmail.com` tampil di metadata PyPI (identitas publik, keputusan user).
 
 ## Rencana rollback
 
-- **Pemicu:** crash pada perintah umum, kehilangan token atau store, atau secret tercetak.
+- **Pemicu:** crash pada perintah umum, kehilangan token atau store, secret tercetak, atau publish berisi file yang salah.
 - **Langkah:**
-  1. Yank `agyswap-cli==0.1.0` di PyPI (Manage project → Releases → Yank). Versi yang sudah terbit tidak bisa ditimpa atau diunggah ulang, jadi tidak dihapus.
-  2. Perbaiki lewat siklus normal.
-  3. Rilis `0.1.1`.
-- Pemakai yang sudah memasang: `uv tool install --reinstall agyswap-cli==<versi sehat>`. `~/.agyswap/accounts.json` tidak berubah format, jadi tidak perlu migrasi.
-- GitHub release `v0.1.0`: tandai sebagai bermasalah di catatan rilis. Tag tidak dihapus agent; itu keputusan user.
+  1. Yank `agyswap-cli==0.1.0` di PyPI (Manage project → Releases → Options → Yank). Versi yang sudah terbit tidak bisa ditimpa atau diunggah ulang, jadi jangan dihapus.
+  2. Perbaiki lewat siklus normal, lalu rilis `0.1.1`.
+  3. Di GitHub release `v0.1.0`, tambahkan catatan bahwa versi ini bermasalah. Tag tidak dihapus agent; itu keputusan user.
+- **Pemakai yang sudah memasang:** `uv tool install --reinstall agyswap-cli==<versi sehat>`. Format `~/.agyswap/accounts.json` tidak berubah, jadi tidak perlu migrasi.
 
-## Tindak lanjut (2026-10-06)
+## Cara rilis (dijalankan user)
 
-Blocker 1 dan 2 diperbaiki atas perintah user, dengan pola Prove-It (ketiga test merah dulu, lalu hijau):
+Tidak ada commit rilis (tanpa bump). Setelah keputusan GO, user menambahkan baris "Inspired by claude-swap" di bagian Description `README.md`. README menjadi deskripsi panjang di PyPI, jadi tag harus mengenai commit yang memuatnya, bukan `f6ebb3f`. Perubahan itu hanya docs (bukan `src/`, `tests/`, `pyproject.toml`, `uv.lock`, atau workflow), sehingga review rilis tetap berlaku.
 
-- `tui.py`: `id="empty"` dihapus. `action_refresh` menangkap `SwapError` dan menampilkannya di status line, jadi app tidak tertutup.
-- `usage._post`: `OSError` dan `http.client.HTTPException` selain `URLError` menjadi `UsageError("network error: <Jenis>")` dengan `from None`, sehingga tidak ada traceback dan tidak ada locals yang tercetak.
-- Test baru:
-  - `test_dropped_connection_becomes_a_row_error` (`TimeoutError`, `ConnectionResetError`, `RemoteDisconnected`),
-  - `test_tui_survives_refresh_on_empty_store`,
-  - `test_tui_shows_refresh_error_instead_of_exiting`.
-- Hasil: ruff lolos, `pytest` 23 passed. Setelah tindak lanjut `/agyswap-review` (`architecture/REVIEW.md`): 25 passed.
+```bash
+git push
+# tunggu CI hijau untuk HEAD
+git tag v0.1.0
+git push origin v0.1.0
+```
 
-Blocker 3 (deskripsi paket) masih menunggu keputusan user. Keputusan GO/NO-GO baru diambil di `/agyswap-ship` berikutnya.
+Tag `v0.1.0` memicu `publish.yml`: cek tag sama dengan versi, test, build, publish ke PyPI lewat trusted publishing (environment `pypi`), lalu GitHub release. Pending publisher `agyswap-cli` menjadi proyek sungguhan saat publish pertama berhasil.
+
+## Verifikasi setelah publish
+
+- `gh run list --workflow publish.yml` → success.
+- Halaman `https://pypi.org/project/agyswap-cli/0.1.0/` ada.
+- Di direktori sementara: `uv tool run --from agyswap-cli==0.1.0 agyswap --help`, lalu `agyswap list` dengan akun sungguhan.
 
 ## Hasil publish
 
-Belum dipublikasikan (NO-GO).
-
-## Langkah berikutnya
-
-Fan-out reviewer dipindah dari `/agyswap-ship` ke `/agyswap-review` (keputusan user, 2026-10-06). Review rilis sekarang wajib sebelum ship.
-
-1. ~~Blocker 3~~: diputuskan user, deskripsi diganti menjadi "Switch between multiple Antigravity CLI accounts, with a quota dashboard for every account" di `pyproject.toml` dan `README.md`.
-2. Jalankan `/agyswap-review` dengan cakupan rilis (seluruh paket, karena belum ada tag). `REVIEW.md` yang sekarang hanya mereview diff perbaikan.
-3. `/agyswap-prepare` → `/agyswap-commit`.
-4. User menjalankan `git push` dan menunggu CI hijau.
-5. Jalankan `/agyswap-ship`. Kalau GO, user menjalankan `git tag v0.1.0 && git push origin v0.1.0`.
+Belum. Menunggu user mendorong tag `v0.1.0`.

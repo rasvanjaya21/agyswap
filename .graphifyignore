@@ -1,0 +1,14 @@
+# Build output and dependencies
+.venv/
+dist/
+uv.lock
+
+# Graph output itself
+graphify-out/
+
+# Symlinks into skills/; the real files are indexed there once
+.agents/
+.claude/
+
+# Mirrored upstream documentation, not our code
+docs/

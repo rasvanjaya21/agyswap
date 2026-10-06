@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-    <strong>Switch between multiple Antigravity accounts, with automatic rate-limit rotation, usage dashboard, and parallel sessions.</strong>
+    <strong>Switch between multiple Antigravity CLI accounts, with a quota dashboard for every account.</strong>
 </p>
 
 <p align="center">

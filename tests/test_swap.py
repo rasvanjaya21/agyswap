@@ -340,3 +340,144 @@ def test_remove_ctrl_d_or_ctrl_c_cancels(tmp_path, monkeypatch, capsys):
         assert cli.main(["remove", "1"]) == 0
         assert "Cancelled" in capsys.readouterr().out
     assert list(cli.load_store()["accounts"]) == ["1"]
+
+
+def test_dropped_connection_becomes_a_row_error(tmp_path, monkeypatch):
+    import http.client
+    import urllib.request
+
+    from agyswap import usage
+
+    kr = setup(tmp_path, monkeypatch)
+    kr["t"] = make_token("a@x.com", "r-a")
+    cli.cmd_add()
+    monkeypatch.setattr(usage, "_agy_client_secrets", lambda: ("S",))
+    for exc in (
+        TimeoutError("read timed out"),
+        ConnectionResetError(),
+        http.client.RemoteDisconnected(),
+        http.client.IncompleteRead(b""),
+    ):
+
+        def boom(*a, exc=exc, **k):
+            raise exc
+
+        monkeypatch.setattr(urllib.request, "urlopen", boom)
+        [row] = cli.collect_usage()
+        assert row["error"] == f"network error: {type(exc).__name__}"
+
+
+def _run_tui(monkeypatch, collect):
+    import asyncio
+
+    from agyswap import tui
+
+    monkeypatch.setattr(cli, "collect_usage", collect)
+
+    async def go():
+        app = tui.AgySwapApp()
+        async with app.run_test() as pilot:
+            for _ in range(2):  # the second refresh re-adds the empty-state item
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+                app.action_refresh()
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            return app.is_running, str(app.query_one("#status").render())
+
+    return asyncio.run(go())
+
+
+def test_tui_survives_refresh_on_empty_store(monkeypatch):
+    running, _ = _run_tui(monkeypatch, lambda: [])
+    assert running
+
+
+def test_tui_shows_refresh_error_instead_of_exiting(monkeypatch):
+    def fail():
+        raise cli.SwapError("secret-tool not found")
+
+    running, status = _run_tui(monkeypatch, fail)
+    assert running
+    assert "secret-tool not found" in status
+
+
+def test_post_keeps_http_errors_for_callers(monkeypatch):
+    import urllib.error
+    import urllib.request
+
+    import pytest
+
+    from agyswap import usage
+
+    def boom(*a, **k):
+        raise urllib.error.HTTPError("u", 403, "forbidden", None, None)
+
+    monkeypatch.setattr(urllib.request, "urlopen", boom)
+    with pytest.raises(usage.UsageError, match="HTTP 403"):
+        usage.fetch_pools(json.dumps({"token": {"access_token": "x"}}))
+
+
+def test_tui_unexpected_refresh_error_shows_only_its_type(monkeypatch):
+    def fail():
+        raise ValueError("doc with r-secret")
+
+    running, status = _run_tui(monkeypatch, fail)
+    assert running
+    assert "ValueError" in status
+    assert "r-secret" not in status
+
+
+def test_secret_tool_timeout_is_a_swap_error(monkeypatch):
+    import subprocess
+
+    import pytest
+
+    def slow(*a, **k):
+        raise subprocess.TimeoutExpired("secret-tool", 30)
+
+    monkeypatch.setattr(cli.subprocess, "run", slow)
+    with pytest.raises(cli.SwapError, match="keyring did not answer"):
+        cli.read_token()
+
+
+def test_tui_action_error_does_not_close_the_app(tmp_path, monkeypatch):
+    import asyncio
+
+    from agyswap import tui
+
+    setup(tmp_path, monkeypatch)
+    row = {"slot": "1", "email": "a@x.com", "active": False, "pools": [], "error": None}
+    monkeypatch.setattr(cli, "collect_usage", lambda: [row])
+
+    def boom(*a):
+        raise OSError("r-secret")
+
+    monkeypatch.setattr(cli, "cmd_switch", boom)
+
+    async def go():
+        app = tui.AgySwapApp()
+        async with app.run_test() as pilot:
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            await pilot.press("s")
+            await pilot.pause()
+            return app.is_running, [n.message for n in app._notifications]
+
+    running, notes = asyncio.run(go())
+    assert running
+    assert any("OSError" in n for n in notes)
+    assert not any("r-secret" in n for n in notes)
+
+
+def test_unexpected_usage_error_stays_on_its_row(tmp_path, monkeypatch):
+    kr = setup(tmp_path, monkeypatch)
+    kr["t"] = make_token("a@x.com", "r-a")
+    cli.cmd_add()
+
+    def odd(token):
+        raise TypeError("r-secret")
+
+    monkeypatch.setattr(cli, "account_usage", odd)
+    [row] = cli.collect_usage()
+    assert row["error"] == "unexpected error: TypeError"

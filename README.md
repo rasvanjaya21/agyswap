@@ -1,5 +1,5 @@
 <p align="center">
-    <a href="#"><img src=".github/assets/banner.webp" width="250"></a>
+    <a href="#"><img src="https://raw.githubusercontent.com/rasvanjaya21/agyswap/master/.github/assets/banner.webp" width="250"></a>
 </p>
 
 <p align="center">
@@ -8,7 +8,6 @@
 
 <p align="center">
     <a href="#"><img src="https://img.shields.io/badge/author-rasvanjaya21-white" alt="author-name"></a>
-    <a href="#"><img src="https://img.shields.io/badge/version-0.1.0-blue" alt="project-version"></a>
     <a href="https://pypi.org/project/agyswap-cli/"><img src="https://img.shields.io/pypi/v/agyswap-cli?label=pip" alt="pypi-version"></a>
     <a href="https://github.com/rasvanjaya21/agyswap/actions/workflows/ci.yml"><img src="https://github.com/rasvanjaya21/agyswap/actions/workflows/ci.yml/badge.svg" alt="build-status"></a>
 </p>
@@ -23,9 +22,9 @@ Inspired by [claude-swap](https://github.com/realiti4/claude-swap).
 
 ## Status
 
-**Usable on Linux.** Adding accounts, switching between them, the quota list, and the interactive dashboard all work, and switching between two real accounts without signing in again has been verified.
+**Usable on Linux.** Adding accounts, switching between them (by hand, by quota, or with `auto` when the active account runs low), aliases, enable/disable, export/import, JSON output, the quota list, and the interactive dashboard all work. Switching between two real accounts without signing in again has been verified.
 
-Not built yet: automatic switching when an account runs low, parallel sessions with different accounts, aliases, enable/disable, export/import, and macOS/Windows keyrings. `TODO.md` lists every open item.
+Not built yet: parallel sessions with different accounts, and macOS/Windows keyrings. [`TODO.md`](https://github.com/rasvanjaya21/agyswap/blob/master/TODO.md) lists every open item.
 
 ## Techstacks
 
@@ -38,19 +37,13 @@ $ uv tool install agyswap-cli    # or: pipx install agyswap-cli / pip install ag
 $ agyswap --help                 # the command is still agyswap
 ```
 
-Until the first release is on PyPI, install from GitHub instead:
-
-```bash
-$ uv tool install git+https://github.com/rasvanjaya21/agyswap
-```
-
 agyswap needs Linux with a Secret Service keyring (GNOME Keyring or KWallet) and `secret-tool` (`dnf install libsecret` or `apt install libsecret-tools`).
 
 ## Configuration
 
 | Variable | What it does |
 | --- | --- |
-| `AGYSWAP_HOME` | Where agyswap keeps its account store. Defaults to `~/.agyswap`. The store, `accounts.json`, holds refresh tokens and is written with mode `0600`. |
+| `AGYSWAP_HOME` | Where agyswap keeps its account store. Defaults to `~/.agyswap`. The store, `accounts.json`, holds refresh tokens and is written with mode `0600`; the quota cache `usage.json` sits next to it. |
 
 ## Usage
 
@@ -65,6 +58,8 @@ $ agyswap add
 
 Signing out of agy does not revoke the token agyswap already stored.
 
+`agyswap add --slot 3` stores the account in slot 3 (moving it if it is already stored elsewhere); it refuses a slot that holds another account.
+
 Run `agyswap` on its own (or `agyswap tui`) for the dashboard. It shows every account's quota for both model groups (Gemini, and Claude/GPT), each with its 5-hour and weekly window and reset times, and marks the active account. Usage refreshes every 2 minutes.
 
 | Key | Action |
@@ -72,6 +67,7 @@ Run `agyswap` on its own (or `agyswap tui`) for the dashboard. It shows every ac
 | `enter` / `s` | Switch to the highlighted account |
 | `a` | Add the account agy is signed in with |
 | `d` | Remove the highlighted account |
+| `x` | Disable or enable the highlighted account |
 | `r` | Refresh usage |
 | `j` / `k` | Move |
 | `q` | Quit |
@@ -79,13 +75,46 @@ Run `agyswap` on its own (or `agyswap tui`) for the dashboard. It shows every ac
 The same actions are available as commands:
 
 ```bash
-$ agyswap switch                  # rotate to the next account
+$ agyswap switch                  # rotate to the next enabled account
 $ agyswap switch 2                # by slot
 $ agyswap switch user@gmail.com   # by email
+$ agyswap switch work             # by alias
 $ agyswap list                    # quota of every account
 $ agyswap status
-$ agyswap remove 2                 # asks first; add --yes (-y) in scripts
+$ agyswap remove 2                # asks first; add --yes (-y) in scripts
 ```
+
+Name accounts and leave some out of rotation:
+
+```bash
+$ agyswap alias 2 work            # omit the name to clear it
+$ agyswap disable 3               # skipped by switch, --strategy, and auto
+$ agyswap enable 3
+```
+
+Pick an account by quota. An account qualifies when every bucket (5-hour and weekly, both model groups) is below the threshold, 90% by default:
+
+```bash
+$ agyswap switch --strategy best             # the account with the most quota left
+$ agyswap switch --strategy next-available   # the next account in order that qualifies
+$ agyswap auto                               # switch only if the active account reached 90%
+$ agyswap auto && agy                        # check before every session
+```
+
+`auto` runs once and exits; it never runs in the background. It exits 1 without switching when no account qualifies or the active account's quota cannot be read. Add `--threshold 80` to either command to change the limit.
+
+`list`, `status`, `switch`, and `auto` accept `--json` and print one JSON object (`"version": 1`) without any token. Errors become `{"version": 1, "error": "..."}` with the same exit code.
+
+The last good quota reading is cached in `usage.json` next to the store. When a fetch fails, `list` and the dashboard show that reading marked `stale`. After an HTTP 429, agyswap waits for `Retry-After` (5 minutes if absent) before asking Google again. An account whose refresh token is rejected (`invalid_grant`) is disabled with the reason `token revoked`; sign in with it again and run `agyswap add` to bring it back.
+
+Move accounts to another machine:
+
+```bash
+$ agyswap export accounts.agyswap   # 0600, refuses to overwrite without --force
+$ agyswap import accounts.agyswap   # skips stored accounts unless --force
+```
+
+The export file holds refresh tokens without encryption. Anyone who has it can use those accounts, so keep it private and delete it after the import. Only import files you exported yourself: agyswap checks that each token's email claim matches its entry, but cannot verify the signature, so a crafted file could label someone else's login with your email.
 
 Exit agy before you switch. A running agy reads the keyring only when it starts and saves its own token back every hour, which would undo the switch. `agyswap switch` refuses while agy is running; `--ignore-running` overrides that. `--force` switches without first copying the live login's token back into its slot.
 
@@ -118,7 +147,7 @@ Tests never touch the real keyring, the network, or `~/.agyswap/`. The keyring, 
 
 ## Deployment
 
-Releases are published to PyPI by `.github/workflows/publish.yml` when a `v*` tag is pushed. The version lives only in `pyproject.toml`.
+Releases are published to PyPI by [`publish.yml`](https://github.com/rasvanjaya21/agyswap/blob/master/.github/workflows/publish.yml) when a `v*` tag is pushed. The version lives only in `pyproject.toml`.
 
 ```bash
 $ uv version --bump patch
@@ -128,13 +157,13 @@ $ git push                                  # wait for CI to pass
 $ git tag "v$(uv version --short)" && git push origin "v$(uv version --short)"
 ```
 
-A published version cannot be replaced. To roll back, yank it on PyPI and release a patch. The one-time PyPI and GitHub setup is in `CONTRIBUTING.md`.
+A published version cannot be replaced. To roll back, yank it on PyPI and release a patch. The one-time PyPI and GitHub setup is in [`CONTRIBUTING.md`](https://github.com/rasvanjaya21/agyswap/blob/master/CONTRIBUTING.md).
 
 ## Architecture
 
-Design decisions and the reasoning behind them live in `architecture/`, one file per workflow that produced it. `OBSERVE.md` maps how agy stores its login and reports quota, with the evidence for each fact; `SPEC.md` specifies the current version; `PLAN.md` lays out the next tasks; `REVIEW.md` holds the latest code review.
+Design decisions and the reasoning behind them live in [`architecture/`](https://github.com/rasvanjaya21/agyswap/tree/master/architecture), one file per workflow that produced it. [`OBSERVE.md`](https://github.com/rasvanjaya21/agyswap/blob/master/architecture/OBSERVE.md) maps how agy stores its login and reports quota, with the evidence for each fact; [`SPEC.md`](https://github.com/rasvanjaya21/agyswap/blob/master/architecture/SPEC.md) specifies the current version; [`PLAN.md`](https://github.com/rasvanjaya21/agyswap/blob/master/architecture/PLAN.md) lays out the next tasks; [`REVIEW.md`](https://github.com/rasvanjaya21/agyswap/blob/master/architecture/REVIEW.md) holds the latest code review.
 
-`AGENTS.md` holds the conventions and the development cycle, and is the single channel shared by every agent working here. `TODO.md` holds open findings and is deleted entry by entry as they are resolved.
+[`AGENTS.md`](https://github.com/rasvanjaya21/agyswap/blob/master/AGENTS.md) holds the conventions and the development cycle, and is the single channel shared by every agent working here. [`TODO.md`](https://github.com/rasvanjaya21/agyswap/blob/master/TODO.md) holds open findings and is deleted entry by entry as they are resolved.
 
 ## Credit
 

@@ -68,14 +68,14 @@ One-time setup:
 1. On PyPI, go to Account → Publishing → "Add a new pending publisher". Set the project name to the name in `pyproject.toml`, owner `rasvanjaya21`, repository `agyswap`, workflow `publish.yml`, and environment `pypi`.
 2. On GitHub, create the `pypi` environment under Settings → Environments.
 
-Pick the bump from the commits since the last tag: **major** for anything that breaks existing use (a removed or renamed command or flag, an incompatible store format, changed exit codes), **minor** for new user-visible capability, and **patch** for everything else. While the version is `0.x`, a breaking change only bumps minor. The first release ships `0.1.0` as is. `/agyswap-ship` does this categorisation and proposes the version.
+Pick the bump from the commits since the last tag: **major** for anything that breaks existing use (a removed or renamed command or flag, an incompatible store format, changed exit codes), **minor** for new user-visible capability, and **patch** for everything else. While the version is `0.x`, a breaking change only bumps minor. `/agyswap-ship` does this categorisation and proposes the version.
 
 Each release:
 
 ```bash
 uv version --bump patch        # or minor / major
 uv lock
-git add pyproject.toml uv.lock README.md   # README carries the version badge
+git add pyproject.toml uv.lock
 git commit -m "chore: release v$(uv version --short)"
 git push                       # wait for CI to pass
 git tag "v$(uv version --short)"

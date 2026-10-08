@@ -102,4 +102,12 @@ Tag `v0.1.0` memicu `publish.yml`: cek tag sama dengan versi, test, build, publi
 
 ## Hasil publish
 
-Belum. Menunggu user mendorong tag `v0.1.0`.
+Dirilis user pada 2026-10-06. Semua dicek agent secara read-only:
+
+- Tag `v0.1.0` di remote mengenai `f563362`.
+- `Publish to PyPI` untuk `f563362`: success. CI `f563362`: success.
+- GitHub release `v0.1.0` memuat wheel, sdist, dan attestation publish untuk keduanya.
+- PyPI `agyswap-cli` 0.1.0 tersedia: `agyswap_cli-0.1.0-py3-none-any.whl` dan `agyswap_cli-0.1.0.tar.gz`, summary sesuai `pyproject.toml`.
+- `uv tool run --isolated --from agyswap-cli==0.1.0 agyswap --help` berjalan, dan `agyswap.__version__` = `0.1.0`. Pemasangan dicoba di direktori sementara dengan `AGYSWAP_HOME` sementara.
+
+Belum diverifikasi: `agyswap list` dari paket PyPI dengan akun sungguhan (cek manual oleh user).

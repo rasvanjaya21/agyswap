@@ -31,7 +31,7 @@ Catat hasilnya di `architecture/BUILD.md`: per task, apa yang diimplementasikan,
 
 - Baca `AGENTS.md` sebelum edit pertama, terutama bagian Invariants.
 - Setiap perubahan store lewat `locked_store()` dan ditulis dengan `save_store()` (atomic, mode 0600). Jangan menulis `accounts.json` dengan cara lain.
-- Hanya `cmd_switch` yang menulis keyring. Refresh usage tidak pernah menulis keyring.
+- Hanya `switch_account` yang menulis keyring (lewat `switch`, `switch --strategy`, dan `auto`). Refresh usage, `import`, dan `export` tidak pernah menulis keyring.
 - Jangan pernah menimpa login yang belum punya salinan di store.
 - Jangan pernah mencetak nilai token (access, refresh, id) atau client secret, termasuk di log, pesan error, dan test.
 - Client secret agy dibaca dari binary `agy` saat runtime. Jangan pernah meng-hardcode atau meng-commit-nya.

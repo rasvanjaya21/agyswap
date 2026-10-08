@@ -32,7 +32,7 @@ Accessibility web tidak berlaku; ganti dengan kejelasan pesan CLI dan TUI (bindi
 - Isi wheel dicek dengan `python -m zipfile -l dist/*.whl`: hanya `agyswap/` dan `agyswap_cli-*.dist-info/`. Isi sdist dicek dengan `tar tzf dist/*.tar.gz`: tidak ada `.venv`, `docs/`, `skills/`, `architecture/`, `graphify-out/`, `.claude/`, `.agents/`, atau `accounts.json`.
 - `git grep -n -E 'GOCSPX-[A-Za-z0-9_-]{20,}'` kosong: client secret agy tidak pernah masuk repo. (`git grep GOCSPX` biasa selalu cocok dengan regex di `usage.py` dan dokumentasi.)
 - Versi hanya ada di `pyproject.toml` (`__init__.py` membacanya lewat `importlib.metadata`). Tag rilis harus sama dengan `v$(uv version --short)`; `publish.yml` menolak tag yang berbeda.
-- Klaim di `README.md` sesuai fitur yang benar-benar ada. Fitur yang belum dibuat disebut di bagian "Status", dan badge versi sama dengan `pyproject.toml`.
+- Klaim di `README.md` sesuai fitur yang benar-benar ada. Fitur yang belum dibuat disebut di bagian "Status".
 - `architecture/OBSERVE.md` dibuat untuk versi agy yang masih dipakai (`agy --version`). Kalau agy sudah naik versi, minta user menjalankan `/agyswap-observe` dulu.
 - Uji manual oleh user dengan dua akun sungguhan sudah dilakukan untuk perubahan yang menyentuh `add`, `switch`, atau penyimpanan token.
 - Rollback PyPI: versi yang sudah dipublikasikan tidak bisa ditimpa atau diunggah ulang. Rencananya adalah yank versi bermasalah di PyPI lalu rilis patch, bukan menghapus.
@@ -55,12 +55,12 @@ Nilai berdasarkan **perubahan yang dirasakan pemakai**, bukan hanya type commit.
 
 ## Cara rilis
 
-Setelah `GO` dan versi disetujui, agent **hanya** membuat commit rilis (bump versi, `uv lock`, badge README). Push branch dan push tag **selalu dijalankan user sendiri**; agent cukup menuliskan perintahnya:
+Setelah `GO` dan versi disetujui, agent **hanya** membuat commit rilis (bump versi, `uv lock`). Push branch dan push tag **selalu dijalankan user sendiri**; agent cukup menuliskan perintahnya:
 
 ```bash
 uv version --bump minor        # sesuai keputusan: major / minor / patch; lewati untuk rilis pertama
-uv lock                        # lalu perbarui badge version-X.Y.Z di README.md
-git add pyproject.toml uv.lock README.md
+uv lock
+git add pyproject.toml uv.lock
 git commit -m "chore: release v$(uv version --short)"
 git push
 # tunggu CI hijau
@@ -68,9 +68,8 @@ git tag "v$(uv version --short)"
 git push origin "v$(uv version --short)"
 ```
 
-- Commit rilis memakai gaya user: `chore: release vX.Y.Z`, tanpa scope dan tanpa trailer. Isinya hanya `pyproject.toml`, `uv.lock`, dan `README.md` (badge versi).
+- Commit rilis memakai gaya user: `chore: release vX.Y.Z`, tanpa scope dan tanpa trailer. Isinya hanya `pyproject.toml` dan `uv.lock`.
 - Untuk rilis pertama tanpa bump, tidak ada commit rilis. Langsung tag commit terakhir yang sudah di-push.
-- Badge versi di `README.md` (`version-X.Y.Z`) diperbarui di commit rilis yang sama.
 - Tag `v*` memicu `.github/workflows/publish.yml`: cek versi, test, build, publish ke PyPI lewat trusted publishing, lalu membuat GitHub release.
 
 **Agent tidak pernah menjalankan `git push` atau `git tag`/push tag**, juga `restore`, `reset`, `clean`, `revert`, `rebase`, atau operasi force, walaupun user tampak setuju. Push tag langsung memicu publish ke PyPI, dan itu tidak bisa dibatalkan.

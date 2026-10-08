@@ -48,7 +48,7 @@ Kategorikan temuan sebagai Critical, Important, atau Suggestion, masing-masing d
 
 ## Yang wajib dicek, yang terlewat oleh review generik
 
-- **Kehilangan token.** Jalur apa pun yang bisa menimpa login yang belum punya salinan di store, menimpa slot milik akun lain, atau menulis keyring di luar `cmd_switch`.
+- **Kehilangan token.** Jalur apa pun yang bisa menimpa login yang belum punya salinan di store, menimpa slot milik akun lain, atau menulis keyring di luar `switch_account` (dipakai `switch`, `switch --strategy`, dan `auto`).
 - **Race di store.** Perubahan `accounts.json` yang tidak lewat `locked_store()`, atau read-modify-write yang memegang data lama melewati operasi lambat (jaringan) lalu menyimpan seluruh file.
 - **Kebocoran secret.** Nilai token, refresh token, id token, atau `GOCSPX-…` yang tercetak ke console, masuk pesan error, masuk test, atau ter-commit. Jalankan `git grep -n -E 'GOCSPX-[A-Za-z0-9_-]{20,}'` dan pastikan kosong.
 - **Asumsi tentang agy** yang tidak ada di `architecture/OBSERVE.md`.

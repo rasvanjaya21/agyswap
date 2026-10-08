@@ -92,6 +92,7 @@ class AgySwapApp(App):
         Binding("s", "switch", "Switch"),
         Binding("a", "add", "Add current"),
         Binding("d", "remove", "Remove"),
+        Binding("x", "toggle", "Disable/Enable"),
         Binding("r", "refresh", "Refresh"),
         Binding("j", "cursor_down", show=False),
         Binding("k", "cursor_up", show=False),
@@ -182,6 +183,11 @@ class AgySwapApp(App):
 
     def action_add(self) -> None:
         self._run(cli.cmd_add, None)
+
+    def action_toggle(self) -> None:
+        row = self._selected()
+        if row:
+            self._run(cli.cmd_enable if row.get("disabled") else cli.cmd_disable, row["email"])
 
     def action_remove(self) -> None:
         row = self._selected()

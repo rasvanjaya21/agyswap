@@ -1,37 +1,36 @@
 # Commit
 
-Ditulis lewat `/agyswap-commit` pada 2026-10-06, setelah `/agyswap-prepare`. Ini commit dari pass ship pertama (NO-GO), perbaikan blocker, review rilis, dan pemindahan fan-out reviewer.
+Ditulis lewat `/agyswap-commit` pada 2026-10-08, setelah `/agyswap-prepare` kedua. Belum di-push; push dijalankan user.
+
+## Commit yang dibuat
 
 | Hash | Pesan | File |
 | ---- | ----- | ---- |
-| `d282307` | `fix(usage): map read-time network errors to usage errors` | `src/agyswap/usage.py` |
-| `8583b6a` | `fix(cli): report keyring timeouts and unexpected usage errors without traceback` | `src/agyswap/cli.py` |
-| `85be519` | `fix(tui): keep dashboard running on empty store, refresh and action errors` | `src/agyswap/tui.py` |
-| `9ff4cd1` | `feat(test): add network, keyring timeout and dashboard error tests` | `tests/test_swap.py` |
-| `c0f318c` | `feat(package): update description to shipped features` | `pyproject.toml` |
-| `8ba1a96` | `docs(project): update readme tagline to shipped features` | `README.md` |
-| `2c8663b` | `feat(skill): move reviewer fan-out from ship to review, update secret scan pattern` | `skills/agyswap-ship/SKILL.md`, `skills/agyswap-review/SKILL.md`, `skills/agyswap-prepare/SKILL.md` |
-| `0085b7a` | `docs(agents): add tui error invariant and release review findings` | `AGENTS.md`, `TODO.md` |
-| `77a8c7b` | `chore(graph): generated code graph` | `graphify-out/GRAPH_REPORT.md`, `graph.html`, `graph.json` |
-| (commit ini) | `docs(architecture): add ship record and update review, test, prepare and commit records` | `architecture/SHIP.md`, `REVIEW.md`, `TEST.md`, `PREPARE.md`, `COMMIT.md` |
+| `d87911b` | `feat(package): migrate license to pep 639, add changelog url and pin hatchling range` | `pyproject.toml` |
+| `4ea06ba` | `feat(workflow): pin actions to commit sha, restrict permissions and split publish into build, publish and release jobs` | `.github/workflows/ci.yml`, `publish.yml`, `skills.yml` |
+| `c686c90` | `feat(usage): add revoked and rate limited errors, clamp retry-after, refuse redirects and scan agy binary once` | `src/agyswap/usage.py` |
+| `7ec04fc` | `feat(cli): add alias, disable, enable, auto, quota strategy, json output, export, import and usage cache, harden store writes` | `src/agyswap/cli.py` |
+| `5c526b2` | `fix(tui): run actions in workers, target accounts by email and escape external text` | `src/agyswap/tui.py` (tanpa tombol `x`) |
+| `2f27235` | `feat(tui): add disable and enable toggle on x` | `src/agyswap/tui.py` |
+| `0784c9f` | `feat(test): add tests for review fixes, account flags, quota strategy, auto, json and export` | `tests/test_swap.py` |
+| `ef62a24` | `docs(project): add v0.2.0 usage, use absolute links for pypi and remove version badge` | `README.md`, `CONTRIBUTING.md` |
+| `94f08a1` | `feat(skill): update keyring writer rule and remove version badge step` | `skills/agyswap-{build,review,ship}/SKILL.md` |
+| `7afd229` | `docs(agents): add v0.2.0 commands and invariants, update todo` | `AGENTS.md`, `TODO.md` |
+| `a910b6a` | `chore(graph): generated code graph` | `graphify-out/GRAPH_REPORT.md`, `graph.html`, `graph.json` |
+| `281c2f1` | `docs(architecture): add v0.1.0 publish result to ship record` | `architecture/SHIP.md` |
+| (commit terakhir) | `docs(architecture): add observe, spec, plan, build, test, review, prepare and commit records for v0.2.0` | `architecture/{OBSERVE,SPEC,PLAN,BUILD,TEST,REVIEW,PREPARE,COMMIT}.md` |
 
 ## Alasan pengelompokan
 
-- **Kode per modul, dipisah dari test.** Jenisnya `fix`, karena ketiganya memperbaiki crash pada kode yang sudah di-commit: TUI `DuplicateIds`, error jaringan dan timeout keyring yang keluar sebagai traceback, dan crash report yang mencetak token.
-- **Deskripsi paket (`package`) dan tagline README (`project`)** dipisah sesuai scope, walaupun berasal dari satu keputusan.
-- **Ketiga skill dalam satu commit**, karena satu alasan: tanggung jawab ship dan review dipisah. Perubahan pola scan secret di `agyswap-prepare` berasal dari temuan yang sama (cek `GOCSPX` di ship).
-- **`AGENTS.md` dan `TODO.md`** masuk scope `agents`.
+- **Urutan:** config dulu (`package`, `workflow`), lalu kode dari bawah ke atas mengikuti dependensinya (`usage` → `cli` → `tui`), lalu test, docs, skill, graph, dan catatan `architecture/`.
+- **`tui.py` dipecah per hunk:**
+  - `5c526b2` memperbaiki perilaku yang memang rusak di v0.1.0: aksi memakai slot dari baris lama, notifikasi tanpa escape, dan aksi yang memblokir thread UI. Karena itu type-nya `fix`.
+  - `2f27235` menambah tombol `x`.
+  - File di `5c526b2` sudah dicek valid (`ast.parse`) dan tidak memuat `toggle`.
+- **`cli.py` dan `usage.py` satu commit per modul.** Hardening dari review dan ship v0.1.0 (store atomik, lock `O_NOFOLLOW`, error keyring, exit code `list`, redirect, scan binary) bertaut di hunk yang sama dengan fitur v0.2.0. Misalnya `save_store` menjadi `_write_private`, dan pesan 429 menjadi `RateLimited`. Pemisahan per hunk tidak jelas, jadi keduanya masuk satu commit yang menyebut hardening di pesannya.
+- **`SHIP.md` terpisah:** isinya hasil publish v0.1.0 dari sesi sebelumnya, bukan catatan siklus v0.2.0.
+- **Test satu commit** setelah semua kode: satu file yang menguji semua modul.
 
 ## Tidak di-commit
 
-Tidak ada. `dist/`, `.venv/`, dan cache `graphify-out/` di-gitignore.
-
-## Push
-
-Push dijalankan user sendiri:
-
-```bash
-git push
-```
-
-Setelah CI hijau, jalankan `/agyswap-ship`.
+Tidak ada. `git status` bersih setelah commit terakhir. `dist/`, `.venv/`, dan cache serta backup `graphify-out/` di-gitignore.

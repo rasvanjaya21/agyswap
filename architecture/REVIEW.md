@@ -1,80 +1,101 @@
-Cakupan: **review rilis v0.1.0**. Belum ada tag, jadi yang direview seluruh paket di working tree (`src/`, `tests/`, `pyproject.toml`, `README.md`, `.github/workflows/`), termasuk perbaikan blocker ship yang belum di-commit.
+Cakupan: **review rilis**, semua perubahan sejak tag `v0.1.0` (commit `b5b5111`, `01c5bfe`, ditambah working tree yang belum di-commit): `src/agyswap/{cli,usage,tui}.py`, `tests/test_swap.py`, `pyproject.toml`, `README.md`, `.github/workflows/`.
 
-# Review rilis v0.1.0
+# Review rilis v0.2.0
 
-Ditulis lewat `/agyswap-review` pada 2026-10-06. Tiga reviewer berjalan paralel (`code-reviewer`, `security-auditor`, `test-engineer`). Temuan Important diverifikasi ulang oleh agent utama.
+Ditulis lewat `/agyswap-review` pada 2026-10-08. Tiga reviewer berjalan paralel (`code-reviewer`, `security-auditor`, `test-engineer`). Agent utama memverifikasi setiap temuan Critical, Important, dan Medium dengan test reproduksi yang merah dulu, lalu memperbaikinya.
 
-**Verdict: Approve** setelah tindak lanjut di bawah. Awalnya Request changes karena dua Important, keduanya kecil. Tidak ada temuan Critical, dan tidak ada temuan security Critical/High. Tidak ada jalur yang menghilangkan token: store selalu disimpan sebelum keyring ditulis.
+**Verdict: Approve setelah perbaikan.**
+- Tidak ada temuan Critical.
+- Tidak ada jalur yang menghilangkan token, menimpa slot akun lain, atau menulis keyring di luar `switch_account`.
+- `git grep -n -E 'GOCSPX-[A-Za-z0-9_-]{20,}'` kosong.
+- Wheel hanya berisi `agyswap/` dan dist-info. Sdist tanpa `accounts.json`, `.venv`, `docs/`, atau `skills/`.
 
-## Verifikasi
+Suite: 75 → **94 passed**. `ruff check`, `ruff format --check`, dan `uv build` lolos.
 
-- `uv run ruff check .` dan `ruff format --check .` lolos. `uv run pytest -q`: 25 passed. `uv build` bersih.
-- **Wheel:** hanya `agyswap/*.py` dan dist-info. **Sdist:** tanpa store, tanpa secret, dan token di test hanya placeholder.
-- `git grep -n -E 'GOCSPX-[A-Za-z0-9_-]{20,}|ya29\.|1//0'`: hanya teks pola di `skills/agyswap-prepare/SKILL.md`. Riwayat git (`git log -p --all`): 0 kecocokan.
-- `pip-audit` (`uv export --all-groups`): tidak ada kerentanan yang diketahui.
-- **Coverage:** `cli.py` 86%, `usage.py` 76%, `tui.py` 67%, total 79% (sebelumnya 61%).
-- **Mutasi** (21 mutasi oleh `test-engineer`): 13 tertangkap, 8 lolos (Important 3 dan Suggestion 5).
-- **Reproduksi Important 1 oleh agent utama:** dengan Textual pilot, `write_token` dibuat melempar `subprocess.TimeoutExpired`, lalu tombol `s` ditekan. Hasilnya `TimeoutExpired` keluar mentah dan app tertutup.
+## Critical
 
-## Lima sumbu
+Tidak ada.
 
-- **Correctness:** semua invariant di `AGENTS.md` dipenuhi kode. Fallback di jalur error TUI belum lengkap (Important 1 dan 2).
-- **Readability:** perbaikan blocker kecil dan berkomentar.
-- **Architecture:** arah `tui.py` → `cli.py` → `usage.py` tetap.
-- **Security:** CLI tidak pernah mencetak locals, karena traceback default Python tidak menampilkannya, dan semua pesan error bebas token. TUI memakai crash report Textual (`show_locals=True`), sehingga setiap exception yang lolos dari handler adalah jalur bocor (Important 1 dan 2).
-- **Performance:** temuan lama sudah ada di `TODO.md` (aksi TUI di thread UI, binary agy dibaca paralel).
+## Important (diperbaiki)
 
-## Important
+1. **`auto` dan `switch --strategy` gagal, bukan melewati, akun yang token-nya dicabut di putaran yang sama** (`src/agyswap/cli.py`, `collect_usage`).
+   - **Penyebab:** baris itu tetap `disabled: false` dan diisi pools dari cache, sehingga `pick_account` memilihnya. Setelah itu `switch_account` menolak karena store sudah menandainya `token revoked`.
+   - **Perbaikan:** baris yang dikarantina di merge ikut ditandai `disabled`.
+   - **Test:** `test_auto_skips_account_revoked_in_the_same_run` (merah dengan `Account 2 is disabled (token revoked)`).
+2. **`auto` tidak pernah meninggalkan akun aktif yang disabled**, termasuk yang dikarantina (`cmd_auto`).
+   - **Penyebab:** akun disabled tidak di-fetch, sehingga `_readable` false dan `auto` keluar dengan "Cannot read the quota". Akibatnya `auto` selalu menolak setelah token akun aktif dicabut.
+   - **Perbaikan:** akun aktif yang disabled langsung diganti lewat strategy.
+   - **Test:** `test_auto_leaves_a_disabled_active_account`.
 
-1. **Aksi switch, add, dan remove di TUI crash pada error selain `SwapError`, dan crash report mencetak awal access token serta semua email** (`src/agyswap/tui.py:155-161`, akar masalah di `src/agyswap/cli.py:67-72`).
-   - **Penyebab:** `_secret_tool` hanya menangkap `FileNotFoundError`. Keyring yang terkunci dan dibiarkan 30 detik memunculkan `subprocess.TimeoutExpired`, yang lolos dari `_run`.
-   - **Jalur lain dengan akibat sama:** `OSError` dari `save_store`, dan `accounts.json` yang rusak.
-   - **Di CLI:** traceback biasa tanpa locals, tidak rapi tapi tidak bocor.
-   - Ditemukan ketiga reviewer, lalu direproduksi agent utama.
-   - **Perbaikan:**
-     - `_secret_tool` menangkap `TimeoutExpired` dan melempar `SwapError("keyring did not answer within 30s (locked?)") from None`.
-     - `_run` menambah `except Exception` yang hanya menampilkan nama jenis exception, sama dengan `action_refresh`.
-     - Tambah test pilot untuk `s` dengan `TimeoutExpired`.
-2. **Handler error refresh memanggil `call_from_thread` di dalam blok `except`** (`src/agyswap/tui.py:121-127`, `security-auditor` L1).
-   - **Akibat:** kalau pemanggilan itu gagal (app sedang ditutup), exception asal ikut terbawa sebagai `__context__`. Crash report lalu mencetak frame `fresh_token`, termasuk **client secret lengkap** (35 karakter, di bawah batas potong 80 karakter).
-   - **Kemungkinan:** rendah, karena butuh exception tak terduga dari `collect_usage` sekaligus `q` saat refresh berjalan. Dampaknya tinggi dan perbaikannya tiga baris.
-   - Diverifikasi dengan membaca kode: kedua pemanggilan `call_from_thread` memang berada di dalam `except`.
-   - **Perbaikan:**
-     - Susun pesan di dalam `except`, panggil `call_from_thread` di luarnya.
-     - Di `collect_usage.one` (`cli.py:160`), tangkap `Exception` dan simpan hanya nama jenisnya di `row["error"]`. Satu respons aneh tidak lagi menjatuhkan seluruh `list`, dan jalur ini tertutup dari sumbernya.
+## Medium / Suggestion dari security dan code review (diperbaiki)
 
-## Suggestion
+3. **`Retry-After` yang ekstrem atau tidak valid** (`src/agyswap/usage.py`, `_retry_after`).
+   - **Masalah:**
+     - `99999999999999999999` membuat `OverflowError` di `timedelta`.
+     - `²` membuat `ValueError`.
+     - Tanggal tanpa zona waktu membuat `TypeError`.
+     - Tanggal tahun 9999 memblokir fetch selama ribuan tahun.
+   - **Perbaikan:** nilai dibatasi ke 0–`MAX_RETRY_AFTER` (3600 detik), tanggal naive dianggap UTC, dan nilai tidak valid jatuh ke 300.
+   - **Test:** `test_retry_after_is_clamped`.
+4. **Validasi `import`** (`_valid_entry`).
+   - **Masalah:**
+     - Token tanpa `token.refresh_token` atau `id_token` lolos validasi, lalu ditulis ke keyring saat switch.
+     - `"disabled": "no"` dihitung sebagai disabled.
+     - Email yang berisi escape terminal (OSC) dicetak apa adanya.
+     - File `version: 2` diterima.
+   - **Perbaikan:** keempatnya ditolak sebelum ada yang ditulis.
+   - **Batas yang tersisa:** tanda tangan `id_token` tetap tidak bisa diverifikasi. README dan help `import` sekarang menyebut "hanya impor file yang kamu ekspor sendiri".
+   - **Test:** `test_import_rejects_malformed_entries`, `test_import_drops_invalid_alias_and_keeps_own_alias_on_force`.
+5. **`export`.**
+   - **Masalah:** `--force` menghapus file lama sebelum menulis yang baru. Path berupa folder, atau folder induk yang tidak ada, menghasilkan traceback. Tulis yang gagal meninggalkan file token setengah jadi.
+   - **Perbaikan:** file 0600 lengkap ditulis lewat `mkstemp` dan `fsync`, lalu dipindah dengan `os.replace` (`--force`) atau `os.link` (yang menolak nama yang sudah ada, termasuk symlink). `OSError` menjadi `Cannot write <path>: <tipe>`, dan file temp selalu dihapus.
+   - **Test:** `test_export_file_errors_are_swap_errors`.
+6. **Exit code `list` menghitung akun disabled sebagai terbaca.** Sekarang exit 1 kalau semua akun yang enabled error.
+   - **Test:** `test_list_exit_code_ignores_disabled_accounts`.
+7. **Flag yang diam-diam diabaikan.** `switch --strategy … --force` dan `switch <target> --threshold N` sekarang exit 2.
+   - **Test:** `test_switch_rejects_flags_that_would_be_ignored`.
+8. **Karantina akun aktif membandingkan token store, bukan token keyring yang ditolak.** Perilakunya setara karena refresh token tidak dirotasi (`OBSERVE.md`). Alasannya sekarang tertulis di komentar.
 
-1. **`architecture/TEST.md` sudah usang:** masih 20 test, coverage 61%, dan `tui.py` 0%. Perbarui saat `/agyswap-prepare`.
-2. **TUI memakai nomor slot dari baris yang bisa berumur sampai 120 detik** (`src/agyswap/tui.py:167`, `:183`). Kalau terminal lain menghapus slot N lalu menambah akun baru ke slot N, tombol `d` menghapus akun baru, padahal dialog menampilkan email lama. Akibatnya salinan refresh token satu-satunya bisa hilang. Kemungkinannya kecil. **Perbaikan:** kirim `row["email"]`, bukan `row["slot"]` (`find_slot` sudah mencocokkan email).
-3. **Pesan `notify` dan label `Confirm` tidak di-escape** (`src/agyswap/tui.py:157`, `:160`, `:186`). Teks `[` dari stderr `secret-tool` bisa membuat app crash saat dirender (tanpa token). **Perbaikan:** pakai `escape()`.
-4. **`agyswap list` mengembalikan exit 0 walaupun semua akun error** (`src/agyswap/cli.py:229-236`).
-5. **Mutasi yang lolos:**
-   - guard merge `collect_usage`: cek email, cek expiry lebih baru, dan seluruh blok (M3–M5);
-   - token live untuk baris akun aktif (M12);
-   - `flock` di `locked_store` (M14);
-   - `--slot 0` (M16);
-   - `invalid_grant` menjadi "token revoked" (M19);
-   - catch `KeyError`/`ValueError` di `collect_usage` (M21).
+## Celah test dari test-engineer (ditutup)
 
-   `test-engineer` sudah menulis sketsa test untuk setiap mutasi dan semuanya lolos di kode saat ini.
-6. **`hatchling` tidak di-pin** (`pyproject.toml:36`). Artefak PyPI dibangun dengan versi apa pun yang tersedia saat tag.
-7. **Environment `pypi` di GitHub:** deployment sudah dibatasi ke tag `v*` (dicek lewat `gh api`). Required reviewers dan ruleset proteksi tag belum tersedia untuk repo private di GitHub Free (API: `Upgrade to GitHub Pro or make this repository public`), jadi diaktifkan setelah repo public.
-8. **Badge `version-0.1.0` di `README.md:11` di-hardcode**, padahal versi seharusnya hanya ada di `pyproject.toml`. Ini sudah jadi langkah di `/agyswap-ship` (badge diperbarui di commit rilis), jadi cukup dicatat.
+52 mutan dijalankan, dan 22 hidup. Mutan yang menyangkut perilaku sekarang dimatikan oleh test baru (dicek ulang satu per satu: semuanya membuat test merah):
 
-## Tindak lanjut (2026-10-06, atas perintah user)
+| Mutan | Test |
+| ----- | ---- |
+| umur cache dipaksa `0` | `test_old_cache_is_not_used_to_pick` |
+| `<` jadi `<=` di `pick_account` dan `auto` | `test_threshold_is_strict` |
+| `agy_running` menghitung `--bg-updater` atau selalu `False` | `test_agy_running_ignores_only_the_bg_updater` |
+| `add --slot` membuang alias dan disable saat memindah akun | `test_add_slot_move_keeps_alias_and_disable` |
+| guard agy di `auto` dihapus (sebelumnya hanya tertangkap belakangan oleh `switch_account`) | `test_auto_refuses_before_saving_or_fetching_while_agy_runs` |
+| `saved_slot` hilang setelah switch | `test_auto_json_reports_saved_slot_after_switch` |
+| `stale` selalu `false` atau `disabled_reason` hilang di JSON | `test_list_json_marks_stale_and_disabled_reason` |
+| cache akun disabled ditimpa kosong | `test_cache_survives_while_account_is_disabled` |
+| `markup=True` di notifikasi TUI | `test_tui_targets_accounts_by_email_and_escapes_markup` (sekarang memeriksa `Notification.markup`; versi lama hanya membaca `message`, jadi lolos untuk alasan yang salah) |
+| invariant "refresh tidak menulis keyring" | `test_usage_refresh_never_writes_the_keyring` |
+| switch ke akun aktif yang disabled, alias ganti huruf besar | `test_switch_to_disabled_current_account_is_already_on`, `test_alias_can_change_case_on_same_account` |
 
-- **Important 1:**
-  - `_secret_tool` mengubah `TimeoutExpired` menjadi `SwapError("keyring did not answer within 30s (locked?) …")`.
-  - `_run` di TUI menangkap `Exception` dan hanya menampilkan `failed: <Jenis>`.
-  - Test: `test_secret_tool_timeout_is_a_swap_error` dan `test_tui_action_error_does_not_close_the_app`. Yang kedua juga meng-assert isi pesan exception tidak tampil di notifikasi.
-- **Important 2:**
-  - `action_refresh` dan `_run` menyusun pesan di dalam `except`, lalu memanggil UI di luarnya. Exception asal tidak lagi terbawa sebagai `__context__`; ini diverifikasi dengan membaca kode, karena tidak ada test yang memicu `call_from_thread` gagal.
-  - `collect_usage.one` menangkap `Exception` sebagai `unexpected error: <Jenis>`. Test: `test_unexpected_usage_error_stays_on_its_row`.
-- Ketiga test merah dulu, lalu hijau. Ruff lolos, `pytest` 28 passed.
-- Suggestion tetap terbuka di `TODO.md`.
+Mutan yang tetap hidup tetapi tidak mengubah perilaku saat ini:
+- `find-alias-first` dan `export-no-filter`: tidak berefek selama alias valid dan store hanya berisi field yang dikenal.
+- `backoff-ago-59`: hanya kosmetik pembulatan menit.
 
-## FYI
+## Tidak diperbaiki (masuk `TODO.md`)
 
-- Email author `rasvanjaya21@gmail.com` akan tampil di metadata PyPI. Ini sudah diputuskan sebagai identitas publik.
-- Temuan lama yang tetap berlaku ada di `TODO.md`, bagian "Temuan ship".
+- **[Low] `~/.agyswap` yang sudah ada tidak dikencangkan ke 0700** (`mkdir(exist_ok=True)`). File di dalamnya 0600, tetapi folder bersama (`AGYSWAP_HOME`) bisa di-list atau diganti isinya oleh user lain.
+- **[Low] `hatchling>=1.27,<2` tidak di-pin persis**; uv.lock tidak mencakup build backend.
+- **[Low] Environment `pypi` tanpa required reviewers.** Baru bisa diaktifkan setelah repo public (sudah ada di `TODO.md`).
+- **Pertanyaan:** perilaku `auto` saat tidak ada yang login. Sekarang `auto` langsung switch ke akun terbaik. Spec belum menyebutnya.
+
+## Pengecekan yang bersih
+
+- **Keyring:** hanya `switch_account` yang menulis, dan semua mutasi store lewat `locked_store()`.
+- **Fetch dan merge:** fetch berjalan tanpa lock, lalu di-merge ke pembacaan baru (email sama, expiry lebih baru, karantina hanya untuk token yang sama).
+- **TUI:** semua aksi lewat thread worker, target lewat email, error tampil tanpa markup atau hanya tipenya, dan tidak ada panggilan UI di dalam `except`.
+- **Jaringan:** timeout 20 detik, User-Agent `antigravity`, redirect ditolak, dan `HTTPError`/`URLError` dipetakan.
+- **File:** `usage.json` tanpa token. `--json` tanpa field token.
+- **Workflow:** action di-pin ke SHA, `id-token: write` hanya di job publish yang tidak menjalankan kode proyek, dan `persist-credentials: false`.
+- **Dependency** (rich 15.0.0, textual 8.2.8, pygments 2.21.0, markdown-it-py 4.2.0): tidak ada CVE yang diketahui. Dicek tanpa jaringan.
+- **Dokumen:** tidak ada klaim README atau AGENTS.md yang bertentangan dengan kode.
+
+## Untuk rilis
+
+`pyproject.toml` masih `0.1.0`. `/agyswap-ship` harus menaikkannya ke `0.2.0` sebelum tag dibuat (`publish.yml` menolak tag yang tidak cocok, dan PyPI menolak versi yang sudah ada).

@@ -1,8 +1,18 @@
 # Observasi agy
 
-- agy: 1.3.0 (`~/.local/bin/agy`, binary Go), diobservasi 2026-10-06
-- Lingkungan: Linux dengan GNOME Keyring 48 (Secret Service)
-- Disusun dari sesi pembuatan agyswap dan dua putaran `/agyswap-observe` (kuota per window, isolasi sesi). Observasi ulang setiap kali `agy --version` berubah.
+- agy: 1.3.1 (`~/.local/bin/agy`, binary Go), diobservasi 2026-10-08 (sebelumnya 1.3.0, 2026-10-06)
+- Lingkungan: Fedora 43, `gnome-keyring-48.0-3.fc43` (Secret Service)
+- Disusun dari sesi pembuatan agyswap dan tiga putaran `/agyswap-observe` (kuota per window, isolasi sesi, agy 1.3.1 dan kuota habis). Observasi ulang setiap kali `agy --version` berubah.
+
+## Perubahan 1.3.0 → 1.3.1
+
+| Kondisi | Bukti | Implikasi untuk agyswap |
+| ------- | ----- | ------------------------ |
+| Alur auth tidak berubah: `keyringAuth: loaded token … expired=true` → `token refreshed, new expiry=… m=+3600` → `ChainedAuth: authenticated via keyring (effective: keyring)` → `applyAuthResult: … authMethod=consumer` | Log `cli-20261007_163326.log` (`Language server version: 1.3.0`) dan `cli-20261007_222421.log` (`Language server version: 1.3.1`) | Tidak ada perubahan `src/` |
+| Item keyring dan bentuk token sama: `{"token": {access_token, token_type, refresh_token, expiry}, "auth_method", "id_token"}`, claim `id_token` sama | Probe bentuk 2026-10-08 (panjang saja) | — |
+| String binary yang dipakai agyswap masih ada: `zalando/go_keyring`, `composite_token_storage.go`, `v1internal:retrieveUserQuotaSummary`, `v1internal:fetchAvailableModels`, `remainingFraction`, host `cloudcode-pa` dan `daily-cloudcode-pa`; tetap dua client secret `GOCSPX-…` | Probe string binary 1.3.1 | `_agy_client_secrets` tetap bekerja |
+| Binary 1.3.0 tidak tersimpan (hanya 1.1.28 di `~/.gemini/bin/agy`), dan changelog lokal (`~/.gemini/antigravity-cli/cache/CHANGELOG.md`) berhenti di 1.2.14 | `ls`, `--version`, `grep` heading changelog | Diff string penuh 1.3.0 → 1.3.1 tidak bisa dibuat; lihat "Belum terobservasi" |
+| Saat start, agy mencatat `You are not logged into Antigravity.` sekitar 1 detik **sebelum** keyring selesai dibaca, walaupun login valid | Kedua log di atas: error pada 22:24:21.66, `loaded token` pada 22:24:22.44 | Baris itu di log bukan bukti logout; jangan dipakai untuk mendeteksi status login |
 
 ## Penyimpanan login
 
@@ -49,7 +59,8 @@
 | Kondisi | Bukti | Implikasi untuk agyswap |
 | ------- | ----- | ------------------------ |
 | `POST https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary`, body `{}`, `Authorization: Bearer`, UA `antigravity`. Juga jalan di `cloudcode-pa`, dan body `{"project": …}` memberi hasil yang sama | Log agy: `Cache(retrieveUserQuotaSummary) … Post "https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary"`; probe read-only 2026-10-06 untuk dua akun, keduanya HTTP 200 (diizinkan user) | Sumber kuota untuk `list`, TUI, dan `auto` |
-| Respons: `groups[] = {displayName, description, buckets[]}`, `buckets[] = {bucketId, displayName, window, resetTime, remainingFraction, description?}`. `window` bernilai `5h` atau `weekly`. `bucketId`: `gemini-5h`, `gemini-weekly`, `3p-5h`, `3p-weekly` | Bentuk respons probe; `agy -p /quota --output-format json` memberi data yang sama (`command.data.groups[].buckets[]`) | Satu bar per bucket, dikelompokkan per group |
+| Respons: `{description, groups[]}`, `groups[] = {displayName, description, buckets[]}`, `buckets[] = {bucketId, displayName, window, resetTime, remainingFraction, description?}`. `window` bernilai `5h` atau `weekly`. `bucketId`: `gemini-5h`, `gemini-weekly`, `3p-5h`, `3p-weekly` | Bentuk respons probe 2026-10-06 dan 2026-10-08 (1.3.1, tidak berubah) | Satu bar per bucket, dikelompokkan per group |
+| `agy -p /quota` dan `agy -p /usage` (`--output-format json`) memberi data yang sama dengan nama key snake_case: `command.data.groups[].buckets[] = {id, name, description?, window, remaining_fraction, reset_time}`. Nilainya cocok dengan endpoint (Gemini mingguan 0.91431904 di keduanya) | Probe 2026-10-08 | Kalau output agy pernah dipakai, key-nya berbeda dari respons API; agyswap tetap membaca API langsung |
 | Grup: "Gemini Models" (Gemini Flash, Gemini Pro) dan "Claude and GPT models" (Claude Opus, Claude Sonnet, GPT-OSS). Teks agy: "models share a weekly limit and a 5-hour limit. Quota is consumed proportionally to the cost of the tokens … your weekly limit is tied directly to your individual tier" | `description` di respons `/quota` | Label grup diambil dari `displayName`, tidak di-hardcode |
 | Window mingguan: `resetTime` tetap, bisa beberapa hari ke depan (slot 1: Gemini 2026-10-07T11:50:41Z, 3p 2026-10-11T06:25:12Z; slot 2: 2026-10-13) | Probe dua akun | Strategi yang mendahulukan akun dengan reset mingguan terdekat bisa memakai data ini |
 | `description` bucket hanya ada kalau bucket sudah terpakai ("You have used some of your weekly limit, it will fully refresh in 1 day.") | Bucket `3p-weekly` slot 2 dengan fraction 1 tanpa `description` | Field opsional |
@@ -62,13 +73,15 @@
 | ------- | ----- | ------------------------ |
 | agy memakai host `daily-cloudcode-pa.googleapis.com` untuk semua endpoint (`loadCodeAssist`, `fetchAvailableModels`, `streamGenerateContent`, `retrieveUserQuotaSummary`) | Hitungan URL di 10 log terbaru | agyswap memakai `cloudcode-pa`; keduanya menjawab sama. Pertimbangkan mengikuti host agy |
 | Saat model API mengembalikan retry delay, agy menunggu delay itu, dan **berhenti langsung** kalau delay > 30 detik atau kuota harian habis. Per-minute 429 di-retry otomatis dengan backoff | Changelog agy (rate-limit handling, transient `genai.APIError` 429); string binary `quotaResetDelay`, `Do not retry quota or capacity errors`, `QUOTA_EXHAUSTED`, `RATE_LIMIT_EXCEEDED` | Kuota habis terlihat di agy sebagai error yang menghentikan giliran. `auto` harus switch sebelum itu, bukan menunggu 429 |
-| Tidak ada jejak 429 atau kuota habis di 89 log yang ada | `grep` 429/`RESOURCE_EXHAUSTED`/`QUOTA_EXHAUSTED` di semua `cli-*.log` | Respons saat habis belum terobservasi |
+| **Kuota habis terlihat di log**: `streamGenerateContent` gagal dengan `RESOURCE_EXHAUSTED (code 429): Individual quota reached. Please upgrade your subscription to increase your limits. Resets in 2h42m19s.`, dicatat dua kali (`agent executor error: generating and executing: …` lalu `generating and executing: …`), lalu giliran berhenti | 12 baris di 5 log 2026-10-04 (16:20–16:22 dan 23:39–23:40; pencarian 2026-10-06 terlewat), model `Gemini 3.8 Flash (High)` | Teks error berisi waktu reset relatif (`Resets in <h>h<m>m<s>s`); jendela < 5 jam, jadi ini window `5h` |
+| Saat kuota habis, beberapa sesi agy yang berjalan bersamaan dengan akun yang sama gagal bersamaan, dan semuanya menghitung reset ke detik yang sama (23:39:00 + 2h42m19s = 23:39:52 + 2h41m27s = 02:21:19) | PID berbeda di `cli-20261004_220222.log`, `cli-20261004_144647.log`, `cli-20261004_233940.log` | Kuota per akun, bukan per sesi. Waktu reset absolut stabil dan bisa dipakai sebagai cooldown `auto` |
+| Setelah 429, agy memanggil `quota_manager: doRefreshQuota` (terkadang `skipped (throttled)`); agy juga me-reload kuota (`force=true`) setiap ganti model dan saat start | `quota_manager.go:41/45` di log yang sama | agy sendiri tidak melakukan apa-apa selain menampilkan error; tidak ada switch otomatis |
 
 ## Proses
 
 | Kondisi | Bukti | Implikasi untuk agyswap |
 | ------- | ----- | ------------------------ |
-| `agy --bg-updater --app_data_dir=antigravity-cli --gemini_dir=.gemini` selalu berjalan di background | `pgrep -a -f antigravity` | Diabaikan oleh `agy_running()` |
+| `agy --bg-updater --app_data_dir=antigravity-cli --gemini_dir=.gemini` di-spawn oleh sesi agy saat start (`auto_updater.go: Spawned background update process with PID …`) dan berhenti sendiri; saat tidak ada sesi, tidak ada proses agy sama sekali | `pgrep -a -f "agy\|antigravity"` kosong 2026-10-08; log `cli-20261007_222421.log`; `updater/update_status.json` | Diabaikan oleh `agy_running()` |
 | **Sesi agy membaca keyring hanya sekali saat start**, lalu me-refresh token tiap jam dan menyimpannya ke keyring | Sesi terpanjang di log agy (sekitar 9 jam): `keyringAuth: loaded token` 1×, `token refreshed` 9×, `Failed to save refreshed token` 0× | Switch saat agy berjalan tidak berpengaruh ke sesi itu dan tertimpa saat refresh berikutnya (≤ 1 jam). `auto` hanya bisa switch saat tidak ada sesi agy |
 | Kredensial yang ditolak definitif oleh server membuat agy sign out dan menghapus token tersimpan | Changelog agy: "the CLI now signs you out and clears the stale tokens" | Token mati di keyring bisa hilang sendiri; salinan di store tetap ada tapi juga mati |
 | Sesi interaktif dan `agy -p` adalah proses `agy` biasa | `pgrep -a -x agy` | Switch ditolak selama ada proses selain updater |
@@ -84,14 +97,19 @@
 
 ## Belum terobservasi
 
-- Respons `retrieveUserQuotaSummary` dan `fetchAvailableModels` saat bucket benar-benar habis (diduga `remainingFraction` 0; belum pernah terjadi). Mengamatinya butuh satu akun yang kuotanya sengaja dihabiskan.
-- Bentuk error `streamGenerateContent` saat kuota habis (`quotaResetDelay`, `QUOTA_EXHAUSTED`) dan pesan yang ditampilkan agy ke user.
+- Respons `retrieveUserQuotaSummary` saat bucket benar-benar habis (diduga `remainingFraction` 0 atau field hilang). Kuota habis sudah terjadi 2026-10-04, tetapi agy tidak mencatat isi respons kuota ke log. Mengamatinya butuh probe read-only saat akun sedang habis.
+- Body JSON error 429 `streamGenerateContent` (`quotaResetDelay`, `QUOTA_EXHAUSTED`, header `Retry-After`) dan teks yang ditampilkan agy di layar; log hanya menyimpan pesan `RESOURCE_EXHAUSTED (code 429): Individual quota reached … Resets in …`.
+- Apakah `retrieveUserQuotaSummary` sendiri pernah menjawab 429, dan apakah ada header `Retry-After`. Belum pernah terjadi pada refresh tiap 2 menit.
+- Kuota mingguan habis (hanya window `5h` yang pernah habis).
+- Diff string binary dan changelog 1.3.0 → 1.3.1: binary lama tidak tersimpan dan changelog lokal berhenti di 1.2.14.
 - Apakah kuota per window berbeda antar tier akun (free vs berbayar). Kedua akun yang diamati memakai tier yang sama.
 - Kode error saat refresh token benar-benar di-revoke (diasumsikan `invalid_grant`, belum pernah terjadi).
 - Perilaku di macOS (Keychain) dan Windows (Credential Manager).
 - Path dan format file token saat agy memakai penyimpanan file (D-Bus tidak terjangkau), dan apakah file itu berada di dalam `--gemini_dir`. Mengamatinya butuh satu login OAuth di sesi terisolasi oleh user.
 
 ## Validasi
+
+- 2026-10-08 (agy 1.3.1, setelah perbaikan temuan review dan ship): dengan store sementara, `add` → `Added account 1`, `list` exit 0 dengan empat bucket (Gemini mingguan 9%, Claude/GPT mingguan 58%), `status` → akun 1. Store dan `.lock` bermode `600`, tidak ada file temp tersisa, dan hash nilai keyring sama sebelum dan sesudah (keyring tidak ditulis). `retrieveUserQuotaSummary` cocok dengan `agy -p /quota`. Tidak ada perubahan `src/`.
 
 - 2026-10-06 (user, TUI dua akun): akun 1 (tidak aktif) Gemini mingguan 43% (reset 23j 31m) dan Claude/GPT mingguan 58% (reset 4h 18j); akun 2 (aktif) semua 0%. Cocok dengan pembacaan `agy -p /quota` sebelumnya (sisa 57% dan 42%, reset 2026-10-07T11:50Z dan 2026-10-11T06:25Z). Kuota akun tidak aktif terbaca benar lewat token tersimpan.
 - 2026-10-06 (build kuota per window): `usage.fetch_pools` dengan `retrieveUserQuotaSummary` cocok dengan `agy -p /quota` untuk akun aktif (terpakai dan reset sama di keempat bucket). `agyswap list` dengan store sementara menampilkan Gemini dan Claude/GPT, masing-masing `5h` dan `weekly` (reset mingguan `6d 22h`). Tidak ada perbaikan tambahan.

@@ -1,6 +1,6 @@
-# Spec: agyswap (state saat ini, v0.1.0)
+# Spec: agyswap (as-built, v0.2.0)
 
-Ditulis lewat `/agyswap-spec` (diisi dari state saat ini) pada 2026-10-06, dan diperbarui di siklus berikutnya setelah prepare dan observe: spec "as-built", disusun dari kode, `AGENTS.md`, `architecture/OBSERVE.md`, `architecture/REVIEW.md`, dan `TODO.md`, tanpa sesi tanya jawab. Spec ini jadi baseline; fitur berikutnya ditulis sebagai spec baru di atasnya.
+Ditulis lewat `/agyswap-spec` (diisi dari state saat ini) pada 2026-10-06, dan diperbarui di siklus berikutnya setelah prepare dan observe: spec "as-built", disusun dari kode, `AGENTS.md`, `architecture/OBSERVE.md`, `architecture/REVIEW.md`, dan `TODO.md`, tanpa sesi tanya jawab. Spec ini jadi baseline; fitur berikutnya ditulis sebagai spec baru di atasnya. Diselaraskan dengan v0.2.0 pada 2026-10-08; detail fitur v0.2.0 ada di "Gelombang 2026-10-08" di bawah.
 
 ## Objective
 
@@ -15,6 +15,7 @@ User story yang sudah terpenuhi:
 2. Saya berpindah akun dengan `agyswap switch` (rotasi), `agyswap switch 2`, atau `agyswap switch email`, lalu agy berikutnya masuk sebagai akun itu tanpa login ulang.
 3. Saya melihat kuota setiap akun (`agyswap list`) atau lewat dashboard interaktif (`agyswap`).
 4. Saya menghapus akun yang tidak dipakai (`agyswap remove`).
+5. Saya menamai akun (`alias`), mengeluarkannya dari rotasi (`disable`/`enable`), memilih akun dari sisa kuota (`switch --strategy`, `auto`), membaca keadaan dari script (`--json`), dan memindahkan akun ke mesin lain (`export`/`import`).
 
 ## Tech Stack
 
@@ -56,7 +57,7 @@ skills/, scripts/, docs/, graphify-out/   tooling agent (lihat AGENTS.md)
 ### Penyimpanan
 
 - Token agy ada di keyring: `service=gemini`, `username=antigravity`, berupa JSON. Email diambil dari claim `email` di `id_token` (`architecture/OBSERVE.md`, "Penyimpanan login").
-- agyswap menyimpan salinan token per akun di `~/.agyswap/accounts.json` (`{"accounts": {"<slot>": {"email", "token"}}}`), mode 0600, ditulis atomik. Lokasinya bisa diganti dengan `AGYSWAP_HOME`.
+- agyswap menyimpan salinan token per akun di `~/.agyswap/accounts.json` (`{"accounts": {"<slot>": {"email", "token", "alias"?, "disabled"?, "disabled_reason"?}}}`), mode 0600, ditulis atomik. Kuota terakhir per email ada di `usage.json` (tanpa token). Lokasinya bisa diganti dengan `AGYSWAP_HOME`.
 - Setiap perubahan store lewat `locked_store()` (flock `~/.agyswap/.lock`).
 
 ### Perintah
@@ -66,8 +67,12 @@ skills/, scripts/, docs/, graphify-out/   tooling agent (lihat AGENTS.md)
 | `add [--slot N]` | Menyimpan login agy yang aktif. Akun yang sudah ada diperbarui di tempat. `--slot` wajib angka ≥ 1, ditolak kalau slot berisi akun lain, dan memindahkan akun yang sama ke slot baru. Gagal dengan pesan jelas kalau agy belum login |
 | `list` / `ls` | Kartu per akun: slot, email, `● active`, satu bar per bucket kuota (persen terpakai, hitung mundur reset). Token akun tidak aktif yang kedaluwarsa di-refresh di memori lalu digabung ke store |
 | `status` | Email akun aktif dan slotnya, atau keterangan bahwa login itu belum disimpan |
-| `switch [N\|email]` | Tanpa target: rotasi ke slot berikutnya. Ditolak kalau ada proses `agy` selain updater (`--ignore-running` untuk memaksa); `--force` melewati penyalinan token live ke slotnya. Sebelum menulis keyring: token live disalin ke slotnya, dan login yang belum disimpan otomatis disimpan ke slot baru |
+| `switch [N\|email\|alias]` | Tanpa target: rotasi ke slot berikutnya yang tidak disabled; `--strategy best\|next-available [--threshold N]` memilih dari kuota. Ditolak kalau ada proses `agy` selain updater (`--ignore-running` untuk memaksa); `--force` melewati penyalinan token live ke slotnya. Sebelum menulis keyring: token live disalin ke slotnya, dan login yang belum disimpan otomatis disimpan ke slot baru |
 | `remove` / `rm` | Menghapus akun dari store. Di TTY bertanya `[y/N]` (peringatan kalau akun aktif); tanpa TTY wajib `--yes`/`-y` |
+| `alias`, `disable`, `enable` | Nama pendek unik; akun disabled dilewati rotasi, strategy, dan `auto`, dan kuotanya tidak di-fetch |
+| `auto [--threshold N] [--strategy …]` | Sekali jalan: pindah dari akun aktif kalau ≥ threshold (default 90%) atau disabled |
+| `export <file>` / `import <file>` | File 0600 berisi refresh token; import memvalidasi seluruh file dan tidak menulis keyring |
+| `--json` | `list`, `status`, `switch`, `auto`: satu objek JSON `"version": 1`, tanpa token |
 | bare `agyswap` | TTY: membuka TUI. Bukan TTY: `no command given`, exit 2 |
 
 ### Kuota
@@ -81,14 +86,14 @@ skills/, scripts/, docs/, graphify-out/   tooling agent (lihat AGENTS.md)
 - Tema pitch black. Judul `agyswap - Antigravity CLI Accounts Swap` di tengah.
 - Kartu akun: kartu terpilih berlatar biru `#0178d4`, `● active` oranye `#ffa62b`, bar hijau/kuning/merah sesuai pemakaian.
 - Footer abu gelap `#141414` dengan badge key oranye, sejajar dengan baris status (jumlah akun, jam update, interval refresh 2 menit).
-- Tombol: `enter`/`s` switch, `a` add, `d` remove (konfirmasi `y`/`n`), `r` refresh, `j`/`k`, `q`. Command palette dimatikan.
-- Refresh kuota berjalan di worker thread, tidak memblokir UI.
+- Tombol: `enter`/`s` switch, `a` add, `d` remove (konfirmasi `y`/`n`), `x` disable/enable, `r` refresh, `j`/`k`, `q`. Command palette dimatikan.
+- Refresh kuota dan semua aksi berjalan di worker thread, tidak memblokir UI; aksi menargetkan akun lewat email.
 
 ### Distribusi dan dokumentasi
 
-- Nama paket PyPI `agyswap-cli` (belum terdaftar; `agyswap` ditolak PyPI karena terlalu mirip proyek lain), command tetap `agyswap`, versi hanya di `pyproject.toml`. `uv build` menghasilkan wheel berisi `agyswap/` saja.
+- Nama paket PyPI `agyswap-cli` (0.1.0 sudah terbit; `agyswap` ditolak PyPI karena terlalu mirip proyek lain), command tetap `agyswap`, versi hanya di `pyproject.toml`. `uv build` menghasilkan wheel berisi `agyswap/` saja.
 - Rilis lewat tag `v*`: `.github/workflows/publish.yml` menjalankan test, build, publish ke PyPI (trusted publishing), dan membuat GitHub release. CI (`ci.yml`) menjalankan ruff, pytest, dan build di Python 3.12–3.14.
-- `README.md` mengikuti format README user: banner `.github/assets/banner.webp`, tagline, badge author, versi, pip, dan build, lalu Description, Status, Techstacks, Installation, Configuration, Usage, Development, Testing, Deployment, Architecture, Credit, dan Member.
+- `README.md` mengikuti format README user: banner (URL absolut ke `.github/assets/banner.webp` supaya tampil di PyPI), tagline, badge author, pip, dan build, lalu Description, Status, Techstacks, Installation, Configuration, Usage, Development, Testing, Deployment, Architecture, Credit, dan Member.
 
 ## Code Style
 
@@ -129,12 +134,11 @@ Ruff: line-length 120, rule `E F W I UP B`, `docs/`, `skills/`, dan `graphify-ou
 
 ## Open Questions
 
-Diambil dari `TODO.md`; masing-masing butuh spec sendiri sebelum dikerjakan:
+Yang tersisa ada di `TODO.md`:
 
-1. **Fitur yang belum ada:** cache dan backoff 429, auto-switch (hanya efektif di antara sesi agy), alias, disable/enable, `--strategy`, `--json`, konfirmasi `remove` di CLI, export/import, layar watch, arti `--force`, dan exit code bare non-TTY.
-2. **Sesi paralel per akun (`run`).** Belum mungkin: `--gemini_dir` tidak mengisolasi token, dan path file token fallback belum terobservasi.
-3. **Rilis.** Repo masih private, `agyswap-cli` belum terdaftar di PyPI, dan pending publisher belum terkonfirmasi. Banner README memakai path relatif sehingga tidak tampil di PyPI.
-4. **Deskripsi proyek** menyebut rotasi otomatis dan sesi paralel sebagai target, padahal keduanya belum ada.
+1. **Sesi paralel per akun (`run`).** Belum mungkin: `--gemini_dir` tidak mengisolasi token, dan path file token fallback belum terobservasi.
+2. **Rilis 0.2.0.** Repo masih private; required reviewers untuk environment `pypi` baru bisa diaktifkan setelah public.
+3. **`auto` saat tidak ada yang login** langsung switch ke akun terbaik; belum diputuskan apakah itu yang diinginkan.
 
 ---
 
@@ -152,12 +156,14 @@ Ditulis lewat `/agyswap-spec kerjakan semua di TODO.md` pada 2026-10-06 (Phase 0
 | `json-output` | `--json` untuk `list`, `status`, `switch` (envelope berversi, tanpa nilai token) | `account-flags`, `usage-cache` | `--json` |
 | `export-import` | `export` / `import` akun ke file JSON 0600 (berisi refresh token; peringatan jelas), menolak menimpa akun lain tanpa `--force` | `account-flags` | export/import |
 | `tui-watch` | Layar watch di TUI: kuota semua akun yang diperbarui otomatis, tanpa aksi switch | `usage-cache` | layar watch |
+| `quarantine` (2026-10-08) | Akun yang refresh token-nya ditolak `invalid_grant` otomatis ditandai `disabled` dengan alasan `token revoked`; `add` ulang menghapus tanda itu | `account-flags` | Akun refresh token mati belum dikarantina |
+| `auto` (2026-10-08) | `agyswap auto` sekali jalan: kalau akun aktif terpakai ≥ threshold di window mana pun, switch ke akun lain lewat strategy | `switch-strategy`, `quarantine` | `auto` |
 
-Build order: `render-polish`, `cli-safety` → `account-flags` → `usage-cache` → `switch-strategy`, `json-output` → `export-import` → `tui-watch`
+Build order: `render-polish`, `cli-safety` → `account-flags` → `usage-cache`, `quarantine` → `switch-strategy`, `json-output` → `auto`, `export-import` (`tui-watch` dibatalkan 2026-10-08)
 
 **Di luar map** (terblokir, lihat `TODO.md`):
 
-- Butuh observasi saat kuota benar-benar habis: `auto` dan pemisahan error kuota.
+- Isi `retrieveUserQuotaSummary` saat bucket habis belum terobservasi (`OBSERVE.md`). `auto` tidak bergantung padanya: threshold di bawah 100% dan fraction yang hilang sudah dihitung habis.
 - Butuh login di sesi terisolasi: `run`.
 - Butuh aksi user: rilis (repo public, PyPI, banner).
 - Tidak bisa diuji di mesin ini: macOS/Windows.
@@ -172,119 +178,274 @@ Build order: `render-polish`, `cli-safety` → `account-flags` → `usage-cache`
 
 ---
 
-## Spec modul: render-polish
+# Gelombang 2026-10-08: modul tersisa
 
-Module id `render-polish` dari Capability Map di atas. Tidak bergantung pada modul lain.
+Ditulis lewat `/agyswap-spec` setelah `/agyswap-observe` agy 1.3.1. Keputusan user (2026-10-08):
 
-### Objective
+- `auto` adalah perintah sekali jalan (`agyswap auto`), bukan wrapper atau daemon.
+- Akun dianggap hampir habis kalau terpakai **≥ 90%** di window mana pun (5h atau mingguan, grup mana pun); bisa diubah dengan `--threshold`.
+- Akun dengan `invalid_grant` otomatis ditandai `disabled`.
+- Semua modul tersisa masuk gelombang ini, dengan build order dari map di atas.
 
-Merapikan dua kekurangan render kartu akun yang ditemukan di `architecture/REVIEW.md` (Suggestion 2 dan 3):
+Format export mengikuti usulan yang disetujui 2026-10-06: JSON envelope tanpa enkripsi, ekstensi `.agyswap`.
 
-1. **Guard `if p.reset:` belum dijaga test** (`src/agyswap/cli.py:219`). Mutasi `if True:` lolos karena test memakai `rstrip()`.
-2. **Lebar kolom grup tetap 12** (`src/agyswap/cli.py:213`). Nama grup diambil dari respons `retrieveUserQuotaSummary` (`architecture/OBSERVE.md`, "Kuota per window"), dan nama yang lebih panjang dari 12 karakter akan menggeser kolom window.
+Fakta agy yang dipakai (semua dari `architecture/OBSERVE.md`, agy 1.3.1): agy membaca keyring sekali saat start, jadi switch hanya efektif di antara sesi ("Proses"); kuota dari `retrieveUserQuotaSummary` per akun dengan window `5h` dan `weekly` ("Kuota per window"); fraction yang hilang dihitung habis; kuota habis berarti agy berhenti dengan `RESOURCE_EXHAUSTED (code 429)` ("Host dan rate limit"); refresh token tidak dirotasi ("Siklus token").
 
-Pemakai tidak melihat perubahan apa pun selama nama grup masih "Gemini" dan "Claude/GPT".
+## Bentuk store
 
-### Perilaku
+`accounts.json` mendapat field opsional per akun. Store lama tetap terbaca tanpa migrasi; field yang tidak ada berarti nilai default.
 
-- Baris bucket yang masih penuh (`reset=None`) berakhir tepat setelah persen, tanpa spasi di ujung.
-- Lebar kolom grup = nama grup terpanjang di kartu itu + 2 spasi, dengan minimum 12, supaya tampilan sekarang tidak berubah. Kolom window tetap sejajar di semua baris kartu.
-- `list` dan TUI berubah bersamaan, karena keduanya memakai `account_text`.
+```json
+{"accounts": {"1": {"email": "a@x.com", "token": "<blob keyring>", "alias": "work", "disabled": true, "disabled_reason": "token revoked"}}}
+```
 
-### Testing Strategy
+| Field | Default | Arti |
+| ----- | ------- | ---- |
+| `alias` | tidak ada | Nama pendek unik (tanpa membedakan huruf besar), bukan angka saja, tanpa `@` |
+| `disabled` | `false` | Akun dilewati rotasi, strategy, dan `auto`; kuotanya tidak di-fetch |
+| `disabled_reason` | tidak ada | `manual` (dari `disable`) atau `token revoked` (dari `quarantine`) |
 
-- **Test 1:** baris bucket penuh dicek tanpa `rstrip()`, dengan `assert not line.endswith(" ")`. Mutasi `if p.reset:` → `if True:` harus membuatnya merah.
-- **Test 2:** kartu dengan grup palsu bernama 20 karakter. Kolom window harus berada di posisi yang sama di semua baris, dan nama grup tidak terpotong.
-- `test_account_text_groups_5h_and_weekly` yang sudah ada tetap hijau. Ini sekaligus membuktikan lebar minimum 12 tidak mengubah tampilan sekarang.
+Cache kuota disimpan terpisah di `~/.agyswap/usage.json` (tanpa token, mode 0600, lewat `locked_store()` yang sama).
 
-### Boundaries
-
-- **Always:** tetap satu fungsi `account_text` untuk `list` dan TUI.
-- **Never:** mengubah warna, bar, atau format reset (itu keputusan tampilan dari user, lihat `AGENTS.md`).
-
-### Success Criteria
-
-- [x] Test kolom lebar merah dulu, lalu hijau. Test spasi di ujung hijau sejak awal (guard sudah ada) dan dibuktikan lewat mutasi di bawah.
-- [x] Mutasi `if p.reset:` → `if True:` tertangkap test.
-- [x] Output `uv run agyswap list` (store sementara) tidak berubah untuk akun sungguhan.
-- [x] `uv run ruff check .`, `uv run ruff format --check .`, dan `uv run pytest -q` lolos.
-
-### Open Questions
-
-Tidak ada.
-
----
-
-## Spec modul: cli-safety
-
-Module id `cli-safety` dari Capability Map di atas. Tidak bergantung pada modul lain.
+## Spec modul: account-flags
 
 ### Objective
 
-Mengubah tiga perilaku CLI supaya perintah yang merusak tidak jalan tanpa sengaja dan script bisa mengenali kesalahan:
-
-1. `remove` minta konfirmasi.
-2. Bare `agyswap` di luar TTY gagal dengan exit 2.
-3. Arti baru `--force` di `switch`.
-
-Keputusan user (2026-10-06, persetujuan Capability Map):
-
-- `--force` berarti "lewati penyalinan token live", ditambah flag baru untuk "abaikan agy yang berjalan".
-- Konfirmasi `remove` bisa dilewati dengan `--yes`/`-y`.
+Pemakai dengan banyak akun bisa menamai akun dan mengeluarkan akun dari rotasi tanpa menghapusnya.
 
 ### Perilaku
 
-| Perilaku | agyswap setelah modul ini |
-| -------- | -------------------------- |
-| Konfirmasi `remove` | Peringatan kalau akun itu aktif, lalu `Remove account N (email)? [y/N] `. Jawaban selain `y`/`yes` → `Cancelled`, exit 0, store tidak berubah |
-| Melewati konfirmasi | `--yes`/`-y`. Tanpa TTY dan tanpa `--yes`, `remove` ditolak dengan exit 1, bukan menunggu input |
-| Bare tanpa TTY | `agyswap: error: no command given — try 'agyswap --help'`, exit 2 |
-| `switch --force` | **Tidak** menyalin token live ke slotnya sebelum switch. Login live yang belum disimpan **tetap** diselamatkan ke slot baru (invariant di `AGENTS.md`), jadi `--force` tidak pernah menghilangkan login |
-| Mengabaikan agy yang berjalan | Flag `--ignore-running`. Tanpa flag ini, switch ditolak selama ada proses `agy` selain updater, karena agy membaca keyring sekali saat start dan menyimpan ulang token tiap jam (`architecture/OBSERVE.md`, "Proses") |
+| Perintah | Hasil |
+| -------- | ----- |
+| `agyswap alias <target> <nama>` | Set alias. Ditolak (exit 1) kalau nama sudah dipakai akun lain, berupa angka saja, atau berisi `@` |
+| `agyswap alias <target>` | Hapus alias |
+| `agyswap disable <target>` | `disabled: true`, `disabled_reason: manual` |
+| `agyswap enable <target>` | Hapus `disabled` dan `disabled_reason` |
+| Target di semua perintah | slot, email, atau alias (urutan pencocokan itu) |
+| Bare `switch` | Rotasi melewati akun disabled. Kalau semua akun lain disabled: `No enabled account to switch to`, exit 1 |
+| `switch <akun disabled>` | Ditolak: `Account N is disabled (<alasan>). Run agyswap enable N first.`, exit 1 |
+| `list` / TUI | Alias tampil setelah email (`a@x.com (work)`). Akun disabled tampil redup dengan `disabled: <alasan>`, tanpa bar kuota |
+| TUI | Tombol `x` men-toggle disable/enable akun terpilih (target lewat email) |
 
-Pesan penolakan saat agy berjalan diperbarui supaya menyebut `--ignore-running`, bukan `--force`.
+Akun aktif boleh di-disable; itu hanya mengeluarkannya dari rotasi berikutnya.
 
 ### Keamanan token
 
-- `remove` hanya menghapus salinan di store. Keyring tidak disentuh, sama seperti sekarang.
-- `--force` mengurangi sinkronisasi: token live yang lebih baru tidak disalin ke slotnya, sehingga slot itu memakai token lama. Karena Google tidak merotasi refresh token (`OBSERVE.md`, "Siklus token"), token lama itu tetap bisa di-refresh. Tidak ada token yang hilang.
-- Login yang belum disimpan selalu diselamatkan, dengan atau tanpa `--force`.
-
-### Dampak ke CLI dan TUI
-
-- **CLI:**
-  - `remove` mendapat `--yes`/`-y`.
-  - `switch` mendapat `--ignore-running`, dan `--force` berganti arti.
-  - Bare `agyswap` non-TTY sekarang exit 2.
-- **TUI tidak berubah:** remove sudah memakai modal konfirmasi sendiri, dan switch di TUI tetap menolak saat agy berjalan.
-- **Dokumentasi:** `README.md` (Usage) dan `AGENTS.md` (Invariants: "`--ignore-running` overrides") diperbarui.
+Tidak ada token yang dibuat, dihapus, atau ditulis ke keyring. Semua mutasi lewat `locked_store()`.
 
 ### Testing Strategy
 
-Semua dengan pytest, keyring palsu, dan `AGYSWAP_HOME=tmp_path`:
-
-- `remove` tanpa `--yes`, input `n` (via `monkeypatch` pada `builtins.input` dan `sys.stdin.isatty`) → `Cancelled`, akun tetap ada.
-- `remove` dengan input `y` → akun terhapus. Dengan `--yes` → terhapus tanpa prompt.
-- `remove` tanpa TTY dan tanpa `--yes` → exit 1 dan akun tetap ada.
-- `main([])` saat non-TTY → `SystemExit` dengan kode 2 dan pesan `no command given`.
-- `switch --ignore-running` saat `agy_running()` bernilai `True` → switch berhasil. `switch --force` saat agy berjalan tetap ditolak.
-- `switch --force`: token live yang lebih baru **tidak** disalin ke slotnya (slot memakai token lama), dan login yang belum disimpan tetap diselamatkan.
-
-### Boundaries
-
-- **Always:** prompt hanya di TTY; script memakai `--yes`.
-- **Ask first:** mengubah arti flag lain di luar modul ini.
-- **Never:** `--force` atau `--ignore-running` yang melewati penyelamatan login yang belum disimpan.
+pytest dengan keyring palsu: alias set/clear/bentrok/angka/`@`; target lewat alias di `switch` dan `remove`; rotasi melewati akun disabled; switch eksplisit ke akun disabled ditolak; store lama tanpa field baru tetap jalan; `account_text` menampilkan alias dan `disabled`; tombol `x` di TUI memanggil disable/enable dengan email.
 
 ### Success Criteria
 
-- [x] Test baru merah dulu, lalu hijau, kecuali `test_force_still_saves_an_unstored_login` yang hijau sejak awal karena menjaga perilaku yang dipertahankan.
-- [x] `uv run agyswap remove 1` di TTY bertanya dulu (dicoba user 2026-10-06: prompt `Remove account 1 (<email>)? [y/N]`, Enter → `Cancelled`);
-- [x] `echo | uv run agyswap remove 1` exit 1; `uv run agyswap remove 1 --yes` langsung menghapus (diuji dengan store sementara).
-- [x] `uv run agyswap < /dev/null` exit 2.
-- [x] `README.md` dan `AGENTS.md` menyebut `--yes`, `--ignore-running`, dan arti baru `--force`.
-- [x] `uv run ruff check .`, `uv run ruff format --check .`, dan `uv run pytest -q` lolos.
+- [x] Perintah dan perilaku di tabel di atas lolos test.
+- [x] Store v0.1.0 terbaca tanpa perubahan.
 
-### Open Questions
+## Spec modul: usage-cache
 
-- Nama flag `--ignore-running`: setuju, atau mau nama lain (misalnya `--while-running`)?
+### Objective
+
+Kuota tetap terlihat saat fetch gagal, dan agyswap berhenti memanggil Google sementara setelah 429.
+
+### Perilaku
+
+- Setiap fetch yang berhasil menyimpan `{fetched_at, pools}` per email ke `usage.json`.
+- Kalau fetch gagal, baris menampilkan pembacaan terakhir dengan penanda `stale, <umur> ago` di samping error.
+- 429 dari `retrieveUserQuotaSummary` menyimpan `retry_at`: header `Retry-After` (detik atau tanggal HTTP) kalau ada, kalau tidak sekarang + 5 menit. Sampai `retry_at`, akun itu tidak di-fetch; barisnya menampilkan cache dan `rate limited, retry in <m>m`.
+- Akun disabled tidak di-fetch.
+- Entri untuk email yang sudah tidak ada di store dibuang saat ditulis.
+- Tidak ada umur maksimum untuk dipakai sebelum fetch: `list` dan TUI tetap fetch setiap kali (kecuali backoff). Cache hanya pengganti saat gagal dan sumber data untuk strategy.
+
+### Keamanan token
+
+`usage.json` tidak berisi token. Ditulis atomik 0600 seperti `accounts.json`.
+
+### Testing Strategy
+
+`account_usage` palsu: fetch sukses menulis cache; fetch gagal menampilkan cache + `stale`; 429 dengan dan tanpa `Retry-After` menyetel `retry_at` dan melewati fetch berikutnya; akun disabled tidak memanggil fetch; `usage.json` tanpa substring token.
+
+### Success Criteria
+
+- [x] Perilaku di atas lolos test, dan `list` dengan jaringan mati menampilkan angka terakhir.
+
+## Spec modul: quarantine
+
+### Objective
+
+Akun yang refresh token-nya sudah dicabut berhenti dipilih secara otomatis.
+
+### Perilaku
+
+- `usage.fresh_token` melempar `TokenRevoked` (subclass `UsageError`) untuk `invalid_grant`; pesannya tetap `token revoked, sign in with agy again and agyswap add`.
+- Di merge `collect_usage` (di bawah lock), akun yang mendapat `TokenRevoked` ditandai `disabled: true`, `disabled_reason: token revoked`, **hanya kalau** token di store masih sama dengan yang di-fetch (kalau user sudah `add` ulang di tengah jalan, tanda tidak dipasang).
+- `add` untuk akun yang `disabled_reason: token revoked` menghapus tanda itu, karena tokennya baru. `disabled_reason: manual` tetap.
+
+Kode `invalid_grant` untuk token yang dicabut belum pernah terobservasi (`OBSERVE.md`, "Belum terobservasi"); spec ini mengikuti respons OAuth standar dan dicek ulang di B (Validasi) saat terjadi.
+
+### Testing Strategy
+
+`_post` palsu mengembalikan `invalid_grant`: akun jadi disabled; token yang diganti di tengah fetch tidak ditandai; `add` ulang menghapus tanda `token revoked` tapi tidak `manual`.
+
+### Success Criteria
+
+- [x] Perilaku di atas lolos test.
+
+## Spec modul: switch-strategy
+
+### Objective
+
+Switch memilih akun yang masih punya kuota, bukan sekadar akun berikutnya.
+
+### Perilaku
+
+- `agyswap switch --strategy next-available` → akun berikutnya dalam urutan rotasi yang **memenuhi syarat**.
+- `agyswap switch --strategy best` → akun yang memenuhi syarat dengan pemakaian tertinggi paling rendah (`max(used)` di keempat bucket); seri diputus dengan nomor slot terkecil.
+- Memenuhi syarat: tidak disabled, bukan akun aktif, kuota terbaca (fetch atau cache yang masih valid), dan semua bucket `used < threshold`.
+- `--threshold <persen>` (default `90`, 1–100) berlaku untuk keduanya.
+- Tidak ada yang memenuhi syarat: `No account below 90% usage`, exit 1, keyring tidak disentuh.
+- `--strategy` tidak boleh dipakai bersama `<target>` (argparse error, exit 2).
+- Tanpa `--strategy`, perilaku `switch` tidak berubah (selain melewati akun disabled).
+- Semua invariant `switch` tetap: tolak saat agy berjalan, simpan login yang belum disimpan, salin token live.
+
+### Testing Strategy
+
+Kuota palsu untuk tiga akun: `best` memilih pemakaian terendah, `next-available` melewati akun ≥ threshold dan akun disabled, seri ke slot terkecil, tidak ada kandidat → exit 1 tanpa menulis keyring, `--strategy` + target → exit 2.
+
+### Success Criteria
+
+- [x] Perilaku di atas lolos test.
+
+## Spec modul: auto
+
+### Objective
+
+Satu perintah yang bisa dijalankan sebelum `agy` (`agyswap auto && agy`) supaya sesi berikutnya tidak mulai di akun yang hampir habis.
+
+### Perilaku
+
+- `agyswap auto [--threshold N] [--strategy best|next-available]` (default `best`, `90`).
+- Akun aktif `used < threshold` di semua bucket → `Account N (email) is fine (max X% used)`, exit 0, tidak ada switch.
+- Akun aktif ≥ threshold di bucket mana pun → switch lewat strategy, cetak `Switched to account M: email (max Y% used)`, exit 0.
+- Tidak ada kandidat → `No account below N% usage; staying on account N`, exit 1.
+- Kuota akun aktif tidak terbaca (error dan tidak ada cache) → tidak switch, exit 1.
+- agy sedang berjalan → ditolak seperti `switch` (exit 1); `--ignore-running` tersedia.
+- Akun aktif yang belum disimpan → diselamatkan ke slot baru, sama seperti `switch`.
+- Tidak ada cooldown terpisah: setiap `auto` membaca kuota baru, dan akun yang baru ditinggalkan tidak dipilih lagi selama masih ≥ threshold.
+
+### Testing Strategy
+
+Kuota palsu: aktif di bawah threshold → no-op tanpa menulis keyring; aktif di atas → switch ke akun yang dipilih strategy; tanpa kandidat → exit 1; error fetch akun aktif → exit 1 tanpa switch; agy berjalan → exit 1.
+
+### Manual check oleh user
+
+Dengan dua akun sungguhan, saat satu akun ≥ 90%: `agyswap auto` lalu `agy` masuk sebagai akun lain.
+
+### Success Criteria
+
+- [x] Perilaku di atas lolos test.
+- [ ] Manual check di atas dilakukan user.
+
+## Spec modul: json-output
+
+### Objective
+
+Script dan status bar bisa membaca keadaan agyswap tanpa mem-parse teks.
+
+### Perilaku
+
+`--json` pada `list`, `status`, `switch`, dan `auto`. Output satu objek JSON di stdout dengan `"version": 1`. Error (`SwapError`) dengan `--json` dicetak sebagai `{"version": 1, "error": "<pesan>"}` di stdout, exit code tetap.
+
+```json
+{"version": 1, "accounts": [{"slot": "1", "email": "a@x.com", "alias": "work", "active": true, "disabled": false, "disabled_reason": null, "error": null, "stale": false, "pools": [{"group": "Gemini", "window": "5h", "used": 0.12, "reset": "2026-10-08T18:54:30+00:00"}]}]}
+{"version": 1, "email": "a@x.com", "slot": "1"}
+{"version": 1, "switched": true, "slot": "2", "email": "b@x.com", "saved_slot": null}
+```
+
+`status` saat tidak login: `{"version": 1, "email": null, "slot": null}`. `auto` memakai bentuk `switch` ditambah `"max_used"`.
+
+### Keamanan token
+
+Tidak ada field token di output mana pun; test memeriksa substring refresh token tidak muncul.
+
+### Testing Strategy
+
+`json.loads` untuk setiap perintah; bentuk key; error sebagai JSON; tidak ada substring token.
+
+### Success Criteria
+
+- [x] Perilaku di atas lolos test.
+
+## Spec modul: export-import
+
+### Objective
+
+Memindahkan akun ke mesin lain atau mencadangkannya tanpa login ulang.
+
+### Perilaku
+
+- `agyswap export <file>` menulis `{"format": "agyswap-export", "version": 1, "accounts": [{"email", "alias", "disabled", "disabled_reason", "token"}]}` dengan mode 0600 dan `O_EXCL`; file yang sudah ada ditolak kecuali `--force`. Ekstensi `.agyswap` disarankan, tidak diwajibkan.
+- Untuk akun aktif, token yang diekspor adalah salinan keyring (yang terbaru), tanpa mengubah store atau keyring.
+- Peringatan di stderr: `<file> holds refresh tokens: anyone with it can use these accounts.`
+- `agyswap import <file>`: email baru masuk ke slot berikutnya; email yang sudah ada dilewati (`skipped a@x.com (already stored)`) kecuali `--force`, yang mengganti token dan field-nya tetapi mempertahankan nomor slot. Akhirnya `Imported N, skipped M`.
+- Entri yang `email`-nya tidak sama dengan claim `email` di token-nya, atau formatnya salah, ditolak seluruhnya sebelum ada yang ditulis (exit 1).
+- `import` tidak pernah menulis keyring.
+
+### Keamanan token
+
+File export berisi refresh token tanpa enkripsi (keputusan 2026-10-06). Ditulis 0600 dengan `O_EXCL`/`O_NOFOLLOW`. Tidak ada token di stdout atau stderr.
+
+### Testing Strategy
+
+Round-trip export → store kosong → import; mode 0600; tolak menimpa tanpa `--force`; akun aktif memakai token keyring; skip dan `--force` saat import; email tidak cocok → seluruh import ditolak; keyring palsu tidak ditulis.
+
+### Success Criteria
+
+- [x] Perilaku di atas lolos test.
+
+## Spec modul: tui-watch
+
+### Objective
+
+Disetujui di map 2026-10-06 sebagai "kuota semua akun yang diperbarui otomatis, tanpa aksi switch". Dashboard sekarang sudah melakukan itu setiap 2 menit, jadi yang tersisa hanyalah mode yang tidak bisa mengubah apa pun.
+
+### Perilaku
+
+- `agyswap tui --watch` (dan bare `agyswap --watch` di TTY) membuka dashboard yang sama tanpa binding `s`/`enter`, `a`, `d`, `x`; footer hanya `r` dan `q`.
+- Interval refresh `--interval <detik>` (default 120, minimum 30) berlaku untuk dashboard biasa dan watch.
+
+### Testing Strategy
+
+`run_test` dengan `--watch`: menekan `s`, `a`, `d`, `x` tidak memanggil `cmd_*`; footer hanya `r` dan `q`; interval diteruskan ke `set_interval`.
+
+### Success Criteria
+
+- [ ] Dibatalkan 2026-10-08 (tidak dibangun).
+
+## Dampak gabungan ke CLI dan TUI
+
+- **Perintah baru:** `alias`, `disable`, `enable`, `auto`, `export`, `import`.
+- **Flag baru:** `switch --strategy/--threshold`, `--json` (list, status, switch, auto), `export/import --force`, `tui --watch/--interval`.
+- **TUI:** tombol `x`; alias dan status disabled di kartu; penanda `stale` dan `rate limited`.
+- **Docs:** `README.md` (Usage, tabel tombol), `AGENTS.md` (Layout, Invariants untuk quarantine dan export), `TODO.md` (hapus butir yang selesai).
+
+## Boundaries (gelombang ini)
+
+- **Always:** semua mutasi store lewat `locked_store()`; keyring hanya ditulis oleh `switch` dan `auto`; tidak ada token di output, log, atau `usage.json`.
+- **Ask first:** dependency baru; mengubah format `accounts.json` di luar field opsional di atas; mengubah default threshold.
+- **Never:** `auto` yang berjalan di latar atau mengubah sesi agy yang sedang berjalan; menghapus akun secara otomatis (quarantine hanya menandai).
+
+## Success Criteria (gelombang ini)
+
+- [x] Semua modul lolos test masing-masing; `uv run ruff check .`, `uv run ruff format --check .`, `uv run pytest -q`, dan `uv build` lolos.
+- [x] Store v0.1.0 tetap terbaca.
+- [ ] Manual check `auto` oleh user (lihat modul `auto`).
+
+## Open Questions (gelombang ini)
+
+Dijawab user 2026-10-08 ("oke, setujui, langsung ke 0.2.0"): spec disetujui beserta rekomendasinya.
+
+1. **`tui-watch` dihapus dari gelombang ini** (rekomendasi diterima): dashboard sudah refresh sendiri, dan `--interval` tidak dibutuhkan. Section modulnya tetap sebagai catatan, tidak dibangun.
+2. **Error JSON di stdout** untuk `--json`: disetujui.
+3. **Rilis:** langsung `0.2.0` (minor: perintah dan flag baru, kompatibel ke belakang). Perbaikan halaman PyPI ikut di rilis ini; tidak ada `0.1.1`.
+

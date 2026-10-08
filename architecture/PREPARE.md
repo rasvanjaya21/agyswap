@@ -1,64 +1,53 @@
 # Prepare
 
-Ditulis lewat `/agyswap-prepare` pada 2026-10-06, setelah review rilis v0.1.0 dan sebelum `/agyswap-commit`. Perubahan yang belum di-commit sejak `82927ef`:
-
-- **Perbaikan blocker ship dan Important review rilis:** `src/agyswap/{cli,usage,tui}.py`, 8 test baru.
-- **Deskripsi paket baru:** `pyproject.toml`, `README.md`.
-- **Fan-out reviewer dipindah dari ship ke review:** `skills/agyswap-{ship,review}/SKILL.md`, `AGENTS.md`.
-- **Catatan:** `architecture/SHIP.md` (baru), `REVIEW.md`, `TODO.md`.
+Ditulis lewat `/agyswap-prepare` pada 2026-10-08, setelah `/agyswap-review` rilis v0.2.0 dan sebelum `/agyswap-commit`. Belum di-commit.
 
 ## 1. TODO.md
 
-- **Dihapus:**
-  - butir "TEST.md usang" (diperbarui di langkah 3);
-  - sebelumnya di sesi ini: blocker ship 1–3, temuan review diff, dua Important review rilis, dan butir cek `GOCSPX`.
-- **Diperbarui:** referensi `file:line` di "Temuan review rilis" dan "Temuan ship" sesuai kode saat ini. Butir slot/email dan escape markup diberi penjelasan dan perbaikannya. Butir environment `pypi` menjadi: tag `v*` sudah dibatasi, required reviewers dan ruleset tersedia setelah repo public.
-- **Tetap:** semua Suggestion review rilis dan temuan ship, atas keputusan user ("taruh di TODO.md saja dulu").
+- Diperbaiki: butir rilis yang menyebut perbaikan halaman PyPI "sudah ada di `master`". Perbaikan itu masih ada di working tree, belum di-commit.
+- Sudah ditambahkan saat review (dicek ulang terhadap kode, masih berlaku):
+  - `AGYSWAP_HOME` yang sudah ada tidak dikencangkan ke 0700.
+  - `hatchling` belum di-pin persis.
+  - Belum diputuskan: perilaku `auto` saat tidak ada yang login.
+- Butir lain (repo private, environment `pypi`, `run`, validasi kuota habis, platform) masih berlaku.
 
 ## 2. Memory Claude dan Antigravity
 
-Dilewati sesuai aturan 0, karena sisi Antigravity kosong: tidak ada knowledge item dan tidak ada sesi agyswap di `conversation_summaries.db`. Memory Claude baru di sesi ini: `reply-language` (balas user dalam bahasa Indonesia).
+Dilewati sesuai aturan 0: sisi Antigravity kosong. `~/.gemini/antigravity-cli/knowledge/` hanya berisi `knowledge.lock`, dan `conversation_summaries.db` tidak punya percakapan dengan workspace agyswap. Tidak ada memory baru yang dibuat.
 
 ## 3. Yang usang
 
-- **`architecture/TEST.md`:**
-  - 20 test / 61% menjadi 28 test / 82%;
-  - tabel baru untuk 8 test jalur error dan TUI;
-  - daftar jalur yang belum dites disusun ulang, karena TUI sudah tidak 0% dan `_post` sudah dites.
-- **`skills/agyswap-prepare/SKILL.md`:** scan secret `git grep -n -E "GOCSPX|ya29\.|1//0"` tidak pernah bisa kosong, karena regex di `usage.py` ikut cocok. Diganti pola secret lengkap.
-- **Catatan historis yang dibiarkan:** `SHIP.md` mencatat pass NO-GO pertama, dan `BUILD.md` mencatat build lama.
+- `architecture/PLAN.md` dan `architecture/BUILD.md`: rencana dan log v0.1.0 (baseline, kuota 5 jam + mingguan, render-polish + cli-safety) dihapus. Semuanya sudah dirilis dan tetap ada di git history. Yang tersisa hanya gelombang v0.2.0.
+- `architecture/SPEC.md`:
+  - Spec modul `render-polish` dan `cli-safety` (sudah selesai di v0.1.0) dihapus.
+  - Baseline diselaraskan ke v0.2.0: bentuk store, `usage.json`, tabel perintah (`alias`, `disable`/`enable`, `auto`, `export`/`import`, `--json`, `--strategy`), tombol `x`, aksi TUI di worker thread, dan status PyPI (0.1.0 sudah terbit, bukan "belum terdaftar").
+  - Open Questions lama, yang mendaftar fitur yang kini sudah dibangun, diganti dengan sisa yang benar-benar terbuka.
+- `CONTRIBUTING.md`: kalimat "The first release ships `0.1.0` as is" dihapus.
+- `architecture/TEST.md`: jumlah test 75 → 94, coverage (cli 97%, tui 96%, usage 89%, total 95%), dan daftar test review rilis.
 
 ## 4. Sisa debug
 
-- Tidak ada `breakpoint()`, `pdb`, `skip`, `xfail`, atau file coba-coba.
-- Harness verifikasi di `/tmp` sudah dihapus.
-- Scan secret pola lengkap: kosong.
+- `git grep` untuk `GOCSPX-…`, `ya29.…`, dan `1//0…`: kosong.
+- Tidak ada `breakpoint()`, `pdb`, `skip`/`xfail`, atau `# TODO` di `src/` dan `tests/`.
+- Tidak ada file untracked.
+- Helper test `pytest_fail` diganti nama menjadi `_fail` (awalan `pytest_` dipakai untuk hook pytest).
+- Sisa eksperimen reviewer di `/tmp` (`/tmp/mut`, checksum, store sementara) sudah dihapus. Store dengan token palsu di-shred.
 
 ## 5. Docs
 
-- **`AGENTS.md`, invariant baru:** tidak ada exception yang boleh lolos dari TUI (crash report Textual mencetak locals). Handler hanya menampilkan teks `SwapError` atau jenis exception, dan memanggil UI di luar `except`. `_post` dan `_secret_tool` memetakan error jaringan dan timeout keyring.
-- **`AGENTS.md`, asal fan-out:** fan-out reviewer berasal dari `commands/ship.md` upstream yang tidak di-vendor, dan sekarang dijalankan di `/agyswap-review`.
-- **`README.md`:** tagline baru tanpa fitur yang belum ada. Bagian Status tidak berubah dan tetap benar.
-- **`docs/`:** textual 8.2.8, rich 15.0.0, pytest 9.1.1, sama dengan `uv.lock`. `.mcp.json` tetap 1:1.
+- `docs/` cocok dengan `uv.lock` (textual 8.2.8, rich 15.0.0, pytest 9.1.1); tidak perlu di-mirror ulang.
+- `README.md` dan `AGENTS.md` sudah diperbarui di build dan review, termasuk peringatan import, yang dicek ulang di sini.
 
 ## 6. Skills
 
-- `uv run python scripts/skills.py`: `agent-skills@1401c8b: updated nothing`.
-- **Bagian agyswap yang diubah:**
-  - `agyswap-ship`: hanya cek rilis, semver, GO/NO-GO, dan rollback. NO-GO otomatis tanpa review rilis yang Approve. Scan secret memakai pola lengkap.
-  - `agyswap-review`: cakupan biasa atau rilis, fan-out tiga reviewer, dan verifikasi Critical/Important oleh agent utama.
-  - `agyswap-prepare`: pola scan secret.
+- `uv run python scripts/skills.py`: `agent-skills@1401c8b: updated nothing`. Upstream tidak berubah.
+- `agyswap-review` dan `agyswap-build`: aturan "hanya `cmd_switch` yang menulis keyring" diganti `switch_account` (dipakai `switch`, `switch --strategy`, `auto`). Di `agyswap-build` ditambahkan bahwa `import`/`export` juga tidak pernah menulis keyring.
+- `agyswap-ship` dan `CONTRIBUTING.md` (sejak awal siklus): langkah "perbarui badge versi" dihapus.
 
 ## 7. Pengetahuan
 
-- **Repo:** invariant TUI dan perpindahan fan-out dicatat di `AGENTS.md` dan skill.
-- **User:**
-  - memory `reply-language`;
-  - aturan "agent tidak push atau tag" sudah ada di memory dan `AGENTS.md`.
-- **Keputusan user di sesi ini (tercatat di repo):**
-  - deskripsi paket diganti;
-  - semua Suggestion masuk `TODO.md`;
-  - `auto` menarik untuk siklus berikutnya, dimulai dengan `/agyswap-observe` (file token dengan `--gemini_dir` saat keyring tidak terjangkau, dan respons saat kuota habis).
+- Tidak ada koreksi user di sesi ini yang perlu disimpan sebagai memory feedback.
+- Fakta baru tentang agy 1.3.1 (`RESOURCE_EXHAUSTED (code 429) … Resets in …`, key snake_case di `agy -p /quota`, updater yang di-spawn per sesi, baris "not logged in" palsu saat start) sudah ada di `architecture/OBSERVE.md`. `AGENTS.md` sudah menyebut 1.3.1.
 
 ## 8. Formatter, linter, test, build
 
@@ -66,20 +55,15 @@ Dilewati sesuai aturan 0, karena sisi Antigravity kosong: tidak ada knowledge it
 | -------- | ----- |
 | `uv sync --locked` | Audited 15 packages |
 | `uv run ruff format .` | 22 files left unchanged |
-| `uv run ruff check .` | All checks passed |
-| `uv run pytest -q` | 28 passed |
-| `uv build` | `agyswap_cli-0.1.0` wheel dan sdist |
+| `uv run ruff check .` | No issues found |
+| `uv run pytest -q` | 94 passed |
+| `uv build` | `agyswap_cli-0.1.0.tar.gz` dan `.whl` (versi dinaikkan di `/agyswap-ship`) |
 
 ## 9. Graphify
 
-- `graphify update .` lalu `graphify label . --backend=gemini`: beberapa komunitas masih bernama file (`cli.py`, `docs.py`, `README.md`).
-- `graphify label . --backend=claude-cli`: semua komunitas bernama.
-- Hasil: 745 node, 1072 edge, 27 komunitas.
+- `graphify update .`: **915 node, 1593 edge, 49 komunitas**.
+- `graphify label . --backend=gemini`: semua komunitas berlabel, tanpa `Community N` dan tanpa label nama file.
 
-## Uji manual oleh user
+## Berikutnya
 
-Tidak ada yang wajib. Perbaikan sesi ini hanya menyentuh jalur error (jaringan, timeout keyring, TUI), tidak menyentuh `add`, `switch`, atau format store, dan semuanya dites otomatis.
-
-## Langkah berikutnya
-
-`/agyswap-commit` → user `git push` dan menunggu CI hijau → `/agyswap-ship`.
+`/agyswap-commit`, lalu `/agyswap-ship` (bump ke `0.2.0`).

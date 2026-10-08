@@ -1,16 +1,16 @@
 # Test
 
-Ditulis lewat `/agyswap-test` pada 2026-10-06 dan diperbarui di `/agyswap-prepare` setelah review rilis v0.1.0. Suite: `uv run pytest -q` → **28 passed**.
+Ditulis lewat `/agyswap-test` pada 2026-10-06, diperbarui 2026-10-08 setelah build dan review rilis v0.2.0. Suite: `uv run pytest -q` → **94 passed**.
 
-Coverage diukur ad hoc dengan `uv run --with coverage coverage run --source=src/agyswap -m pytest`, tanpa menambah dependency ke `pyproject.toml`:
+Coverage diukur ad hoc dengan `uv run --with coverage coverage run -m pytest`, tanpa menambah dependency ke `pyproject.toml`:
 
-| File | Statement | Tercakup | Sebelumnya |
-| ---- | --------- | -------- | ---------- |
-| `src/agyswap/cli.py` | 266 | 88% | 85% |
-| `src/agyswap/usage.py` | 101 | 76% | 58% |
-| `src/agyswap/tui.py` | 105 | 79% (Textual pilot) | 0% |
-| `src/agyswap/__init__.py`, `__main__.py` | 8 | sebagian | sebagian |
-| **Total** | 480 | **82%** | 61% |
+| File | Statement | Tercakup | Sebelumnya (v0.1.0) |
+| ---- | --------- | -------- | ------------------- |
+| `src/agyswap/cli.py` | 587 | 97% | 88% |
+| `src/agyswap/usage.py` | 132 | 89% | 76% |
+| `src/agyswap/tui.py` | 109 | 96% (Textual pilot) | 79% |
+| `src/agyswap/__init__.py` | 5 | 60% | sebagian |
+| **Total** | 833 | **95%** | 82% |
 
 ## Apa yang dibuktikan setiap test
 
@@ -66,24 +66,71 @@ Test regresi untuk tiga temuan Critical lama, kuota per window, dan bug duplikat
 | `test_tui_unexpected_refresh_error_shows_only_its_type` | error lain saat refresh hanya menampilkan jenisnya, tanpa isi pesan |
 | `test_tui_action_error_does_not_close_the_app` | error di aksi `s` hanya menampilkan jenisnya di notifikasi, app tetap jalan |
 
+### Perbaikan temuan review dan ship (2026-10-08)
+
+| Test | Membuktikan |
+| ---- | ----------- |
+| `test_list_exits_1_when_every_account_fails` | `list` exit 1 kalau semua akun error, 0 kalau ada yang terbaca |
+| `test_corrupt_store_is_a_swap_error` | `accounts.json` rusak → pesan error, bukan traceback |
+| `test_keyring_read_failure_is_not_signed_out` | `secret-tool lookup` dengan stderr → `SwapError`; exit 1 tanpa stderr → tidak login |
+| `test_save_store_leaves_no_temp_file` | tulis atomik tidak meninggalkan file temp, mode 0600 |
+| `test_locked_store_is_exclusive` | `flock` membuat pemegang kedua menunggu |
+| `test_add_slot_zero_is_rejected` | `--slot 0` ditolak |
+| `test_usage_uses_live_token_for_active_account` | baris akun aktif memakai token keyring |
+| `test_usage_merge_skips_older_or_foreign_tokens` | merge menolak token yang lebih lama atau milik akun lain, dan store tidak ditulis ulang tanpa perubahan |
+| `test_usage_catches_malformed_token_errors` | `KeyError`/`ValueError` menjadi error baris biasa |
+| `test_invalid_grant_says_token_revoked` | `invalid_grant` → "token revoked" |
+| `test_quota_429_is_named` | 429 dari endpoint kuota punya pesan sendiri |
+| `test_requests_never_follow_redirects` | redirect ditolak, `Authorization` tidak ikut ke host lain |
+| `test_tui_targets_accounts_by_email_and_escapes_markup` | aksi TUI memakai email; teks `[` tidak membuat app crash |
+
+### Gelombang v0.2.0
+
+| Test | Membuktikan |
+| ---- | ----------- |
+| `test_alias_set_clear_and_target` | alias set/clear; tolak bentrok, angka, `@`; target lewat alias di `switch` dan `remove` |
+| `test_account_text_shows_alias` | kartu menampilkan `email (alias)` |
+| `test_rotation_skips_disabled_accounts` | rotasi melewati akun disabled, switch eksplisit ke akun disabled ditolak, semua disabled → exit 1, `enable` |
+| `test_usage_skips_disabled_accounts` | akun disabled tidak di-fetch; kartu `disabled: manual` tanpa bar |
+| `test_tui_x_toggles_disable_by_email` | tombol `x` memanggil disable/enable dengan email (dibuktikan dengan mutasi) |
+| `test_revoked_token_quarantines_account` | `invalid_grant` → `disabled_reason: token revoked` |
+| `test_quarantine_skips_token_replaced_during_fetch` | token yang di-`add` ulang di tengah fetch tidak dikarantina |
+| `test_add_clears_revoked_mark_but_keeps_alias_and_manual` | `add` ulang menghapus `token revoked`, mempertahankan alias dan `manual` |
+| `test_usage_cache_fills_failed_fetch` | cache 0600 tanpa token; fetch gagal memakai cache + `stale`; email yang dihapus dibuang |
+| `test_corrupt_usage_cache_is_ignored`, `test_malformed_cache_entry_is_not_shown` | cache rusak tidak membuat refresh gagal |
+| `test_rate_limited_reads_retry_after` | `Retry-After` detik, tanggal HTTP, tidak ada, dan tidak valid |
+| `test_rate_limited_account_is_not_fetched_until_retry_at` | tidak ada request sebelum `retry_at`, ada lagi sesudahnya |
+| `test_pick_account_strategies` | `best`/`next-available`: threshold, disabled, aktif, cache ≤ 30 menit, seri ke slot terkecil, wrap-around |
+| `test_switch_strategy_switches_to_picked_account`, `test_switch_strategy_rejects_target`, `test_switch_strategy_refuses_while_agy_runs` | `switch --strategy` end-to-end, `<target>` + `--strategy` → exit 2, tolak sebelum fetch saat agy berjalan |
+| `test_auto_*` (6 test) | no-op di bawah threshold, switch di atasnya, tanpa kandidat, kuota tidak terbaca, agy berjalan, login belum tersimpan (diselamatkan, dan tidak ditinggalkan kalau kuotanya masih cukup) |
+| `test_json_output_for_list_status_switch_auto`, `test_list_json_on_empty_store` | bentuk JSON, error sebagai JSON, tidak ada substring token |
+| `test_export_import_roundtrip`, `test_import_rejects_whole_file_on_bad_entry`, `test_import_rejects_unreadable_or_foreign_files`, `test_import_drops_alias_taken_by_another_account` | export 0600 tanpa menimpa, token keyring untuk akun aktif, skip/`--force`, validasi seluruh file, alias bentrok dibuang, keyring tidak ditulis |
+| `test_fresh_token_refreshes_and_skips_rejected_client`, `test_fresh_token_fails_when_no_client_is_accepted` | refresh sukses (access/id token baru, refresh token tetap), `invalid_client` mencoba secret berikutnya, token yang masih valid tidak di-refresh |
+| `test_switch_to_active_account_is_a_no_op` | switch ke akun aktif tidak menulis keyring |
+| `test_tui_remove_confirms_and_targets_email` | modal remove: `n` batal, `y` menghapus lewat email |
+| `test_threshold_must_be_a_percentage` | `--threshold` hanya 0 < x ≤ 100 |
+
+Mutasi yang diperiksa (mutan harus membuat test merah): token pengganti di karantina, guard `retry_at`, prune cache, threshold di `pick_account`, `O_EXCL`/0600 di export, cek agy berjalan di strategy, fallback `invalid_client`, `cmd_add` di `auto`. Semuanya mati. `test_switch_strategy_refuses_while_agy_runs` awalnya lolos walau cek dihapus (error fetch ditelan jadi baris), dan `test_auto_saves_unstored_live_login_first` awalnya tidak menyentuh jalur "belum tersimpan"; keduanya diperbaiki.
+
+### Review rilis v0.2.0
+
+Test reproduksi untuk temuan review (merah dulu) dan test yang mematikan mutan yang hidup. Rinciannya per temuan ada di `architecture/REVIEW.md`: `test_auto_skips_account_revoked_in_the_same_run`, `test_auto_leaves_a_disabled_active_account`, `test_retry_after_is_clamped`, `test_import_rejects_malformed_entries`, `test_import_drops_invalid_alias_and_keeps_own_alias_on_force`, `test_list_exit_code_ignores_disabled_accounts`, `test_export_file_errors_are_swap_errors`, `test_switch_rejects_flags_that_would_be_ignored`, `test_old_cache_is_not_used_to_pick`, `test_agy_running_ignores_only_the_bg_updater`, `test_add_slot_move_keeps_alias_and_disable`, `test_threshold_is_strict`, `test_auto_refuses_before_saving_or_fetching_while_agy_runs`, `test_auto_json_reports_saved_slot_after_switch`, `test_list_json_marks_stale_and_disabled_reason`, `test_cache_survives_while_account_is_disabled`, `test_switch_to_disabled_current_account_is_already_on`, `test_alias_can_change_case_on_same_account`, `test_usage_refresh_never_writes_the_keyring`.
+
 ## Jalur yang belum dites otomatis
 
-Ini celah coverage, diurutkan dari risiko tertinggi. Mutasi yang lolos tercatat di `TODO.md`.
+Diurutkan dari risiko tertinggi:
 
-- **Guard merge di `collect_usage`** (cek email, cek expiry lebih baru) dan pemakaian token live untuk baris akun aktif.
-- **`usage.fresh_token`**: `invalid_client` lalu mencoba secret berikutnya, `invalid_grant` menjadi "token revoked", dan refresh sukses yang dilanjutkan ke `fetch_pools`.
-- **`flock` di `locked_store`**.
-- **`usage._agy_client_secrets`**: binary agy tidak ditemukan, atau tidak berisi secret.
-- **`cmd_add --slot 0`**, `cmd_switch` tanpa akun, switch ke akun yang sedang aktif, `cmd_list` dan `cmd_status`, serta dispatch `main`.
-- **TUI:** modal `Confirm`, aksi `a` dan `d`, dan render baris akun.
-- **Pembungkus `secret-tool` dan `pgrep`:** hanya jalur timeout yang dites. Sisanya bisa dites dengan `subprocess.run` palsu.
+- **`usage._scan_client_secrets`**: binary agy tidak ditemukan atau tidak berisi secret (dipalsukan di semua test). Dicek manual: dua secret terbaca dari agy 1.3.1.
+- **`fresh_token` error lain:** HTTP selain `invalid_client`/`invalid_grant` dan `URLError` saat refresh.
+- **Pembungkus `secret-tool` (`write_token` gagal)**: hanya timeout dan lookup yang dites.
+- **`cmd_status` teks**, pesan `No accounts stored` di `switch`, dan `tui` lewat `main` (dispatch).
+- **TUI:** `enter` (on_list_view_selected) dan `a` hanya lewat jalur `_run` yang sama dengan `s`.
 
 ## Cek manual
 
-Semua cek manual yang direncanakan sudah dilakukan user pada 2026-10-06:
+Sudah dilakukan (agent, store sementara, akun sungguhan, hash keyring tidak berubah): `add`, `alias`, `list`, `list` dengan jaringan diputus (penanda `stale`), `list --json`, `auto --json` (satu akun, 58% → no-op).
 
-- switch dua akun tanpa login ulang,
-- kuota 5 jam dan mingguan di TUI cocok dengan `/quota` di agy (termasuk akun yang tidak aktif),
-- prompt `remove` di terminal sungguhan.
+Menunggu user:
 
-Tidak ada cek manual yang menunggu.
+- `agyswap auto` dengan dua akun sungguhan saat satu akun ≥ 90%, lalu `agy` masuk sebagai akun lain.
+- Saat kuota 5h sebuah akun benar-benar habis: kabari agent untuk probe read-only `retrieveUserQuotaSummary` (`architecture/OBSERVE.md`).

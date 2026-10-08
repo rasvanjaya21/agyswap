@@ -1,251 +1,241 @@
-# Implementation Plan: agyswap baseline v0.1.0
-
-Ditulis lewat `/agyswap-plan` pada 2026-10-06, diisi dari state saat ini (`architecture/SPEC.md`, `architecture/OBSERVE.md`, kode), dan diperbarui di siklus berikutnya untuk pekerjaan yang sama. Fase 1 mencatat pekerjaan yang sudah selesai. Fase 2 adalah satu-satunya kriteria sukses baseline yang belum terpenuhi: kuota mingguan.
+# Implementation Plan: gelombang 2026-10-08 (v0.2.0)
 
 ## Overview
 
-Baseline agyswap sudah berjalan: add, list, status, switch, remove, dan TUI, dengan token yang aman dari kehilangan. Yang tersisa untuk menutup baseline adalah sumber kuota. `fetchAvailableModels` hanya memuat window 5 jam, sehingga akun bisa tampil 0% terpakai padahal kuota mingguannya sudah terpakai 44–58%. Rencana ini memindahkan sumber kuota ke `retrieveUserQuotaSummary`, yang memuat window 5 jam dan mingguan per grup, lalu menampilkannya di `list` dan TUI.
+Membangun tujuh modul dari `architecture/SPEC.md` ("Gelombang 2026-10-08"): `account-flags`, `quarantine`, `usage-cache`, `switch-strategy`, `auto`, `json-output`, `export-import`. `tui-watch` dibatalkan. Hasilnya dirilis sebagai `0.2.0` bersama perbaikan temuan review/ship dan halaman PyPI yang sudah ada di working tree.
 
 ## Architecture Decisions
 
-- **Sumber kuota diganti, bukan ditambah.** `retrieveUserQuotaSummary` sudah memuat window 5 jam yang sama dengan `fetchAvailableModels`, plus window mingguan. Jalur `fetchAvailableModels` dihapus supaya tidak ada dua sumber yang bisa berbeda (`OBSERVE.md`, "Kuota per window").
-- **Host mengikuti agy:** `daily-cloudcode-pa.googleapis.com`, dengan body `{}`, `Authorization: Bearer`, dan UA `antigravity` (`OBSERVE.md`, "Host dan rate limit").
-- **Label grup dari respons, tidak di-hardcode.** Nama grup diambil dari `groups[].displayName` ("Gemini Models", "Claude and GPT models"), dan nama window dari `buckets[].window` (`5h`, `weekly`).
-- **Reset bucket yang masih penuh diabaikan.** Bucket 5 jam dengan `remainingFraction: 1` melaporkan reset yang terus bergeser, jadi hitung mundurnya tidak ditampilkan (`OBSERVE.md`, baris bucket 5 jam yang belum dipakai).
-- **`Pool` diganti menjadi `group`, `window`, `used`, `reset`.** `collect_usage`, merge token, dan TUI tidak berubah, dan hanya render yang menyesuaikan. Properti `label` sementara dihapus saat prepare setelah review, karena sudah tidak dipakai.
+- **Field opsional, tanpa migrasi.** `alias`, `disabled`, `disabled_reason` dibaca dengan `acc.get(...)`; store v0.1.0 tetap valid.
+- **Satu lock untuk dua file.** `usage.json` ditulis di bawah `locked_store()` yang sama dengan `accounts.json`. Penulisan atomik 0600 dipisah jadi helper `_write_private(path, data)` yang dipakai keduanya.
+- **Fetch tetap di luar lock.** `switch --strategy` dan `auto` memanggil `collect_usage()` dulu (jaringan, tanpa lock), lalu memilih akun, lalu `cmd_switch(<email terpilih>)` yang mengambil lock dan menjalankan semua invariant switch yang sudah ada. Pilihan memakai email supaya tidak salah slot.
+- **Pemilihan akun adalah fungsi murni** `pick_account(rows, strategy, threshold, current)` di `cli.py`, dites tanpa keyring dan jaringan.
+- **Cache yang dianggap terbaca untuk strategy**: fetch berhasil, atau cache berumur ≤ 30 menit (baris `stale`). Lebih tua dari itu dianggap tidak terbaca.
+- **Error bertipe.** `usage.TokenRevoked(UsageError)` untuk `invalid_grant`, `usage.RateLimited(UsageError)` dengan `retry_after` (detik) untuk 429 dari endpoint kuota. Pesan untuk pemakai tidak berubah, jadi baris error lama tetap sama.
+- **Hasil switch terstruktur.** `cmd_switch` mengembalikan dict `{switched, slot, email, saved_slot}`; teks untuk CLI dan TUI dibentuk oleh `switch_message(result)`. Ini yang dipakai `--json`.
+- **Baris `collect_usage`** mendapat key `alias`, `disabled`, `disabled_reason`, `stale` (umur detik atau `None`), `retry_at`. `account_text` dan `--json` membaca dari dict yang sama.
 
 ## Dependency Graph
 
 ```
-usage.fetch_pools (sumber kuota)
-    └── cli.account_text (render kartu)
-            ├── cli.cmd_list
-            └── tui.AgySwapApp (kartu di ListView)
+usage.py  (TokenRevoked, RateLimited, Retry-After)
+   │
+cli.py    store fields ─ find_slot(alias) ─ disable/enable ─ rotation
+   │          │
+   │      collect_usage ─ quarantine merge ─ usage.json cache/backoff
+   │          │
+   │      pick_account ─ switch --strategy ─ auto
+   │          │
+   │      --json (list/status/switch/auto)     export / import
+   │
+tui.py    kartu (alias, disabled, stale) ─ tombol x
 ```
 
 ## Task List
 
-### Phase 1: Baseline (selesai)
+### Phase 1: account-flags
 
-- [x] Store akun di `~/.agyswap/accounts.json` (0600, atomik, `locked_store()`), keyring lewat `secret-tool`.
-- [x] `add [--slot N]`, `status`, `switch [N|email] [--force]`, `remove`, termasuk tiga perbaikan Critical dari `REVIEW.md` (login tanpa salinan, slot milik akun lain, race di store).
-- [x] Refresh token akun tidak aktif dengan client secret dari binary agy, User-Agent `antigravity`.
-- [x] `list` dan TUI (tema pitch black, kartu, footer badge), refresh di worker thread.
-- [x] 7 test pytest, ruff, CI, publish workflow, dan uji manual dua akun sungguhan oleh user.
-- [x] `README.md` mengikuti format README user (banner, badge pip dan build); validasi ulang `add`/`status`/`list` dengan store sementara di agy 1.3.0.
-- [x] Siklus proyek: SHIP terakhir setelah COMMIT, dan `/agyswap-ship` menentukan bump semver dari commit sejak tag terakhir.
+## Task 1 (selesai): Alias dan target lewat alias
 
-### Phase 2: Kuota 5 jam + mingguan
-
-## Task 1: Ambil kuota dari `retrieveUserQuotaSummary` — selesai
-
-**Description:** `usage.fetch_pools` memanggil `POST https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary` dengan body `{}`, lalu menghasilkan satu `Pool` per bucket, berisi `group` (dari `groups[].displayName`), `window` (`5h`/`weekly`), `used = 1 - remainingFraction`, dan `reset`. `reset` bernilai `None` kalau bucket masih penuh. Konstanta dan kode `fetchAvailableModels` dihapus.
+**Description:** `agyswap alias <target> [nama]` menyetel atau menghapus alias. `find_slot` mencocokkan slot → email → alias (tanpa membedakan huruf besar). `account_text` menampilkan `email (alias)`.
 
 **Acceptance criteria:**
-- [x] Respons dengan bentuk dari `OBSERVE.md` (dua grup, masing-masing bucket `5h` dan `weekly`) menghasilkan empat `Pool` dengan group, window, used, dan reset yang benar.
-- [x] Bucket dengan `remainingFraction` 1 punya `reset=None`. `description` yang tidak ada tidak membuat error.
-- [x] HTTP error dan network error tetap menjadi `UsageError` dengan pesan yang sama seperti sekarang.
-
-**Verification:**
-- [x] `uv run pytest -q`: test baru dengan `usage._post` palsu menggantikan `test_fetch_pools_groups_shared_buckets`.
-- [x] `uv run ruff check .` dan `uv run ruff format --check .`
-- [x] Manual (read-only): `uv run python -c "from agyswap import cli, usage; print([(p.group, p.window, round(p.used,3)) for p in usage.account_usage(cli.read_token())[0]])"` cocok dengan `agy -p /quota --output-format json`.
-
-**Dependencies:** None
-
-**Files likely touched:** `src/agyswap/usage.py`, `tests/test_swap.py`
-
-**Estimated scope:** S
-
-## Task 2: Tampilkan 5 jam dan mingguan di `list` dan TUI — selesai
-
-**Description:** `cli.account_text` mengelompokkan pool per grup. Setiap grup tampil sebagai satu judul (misalnya `Gemini`, `Claude/GPT`), diikuti baris `5h` dan `weekly`, masing-masing dengan bar, persen, dan hitung mundur reset (`resets 4h 12m` atau `resets 2d 5h`). Bucket penuh tidak menampilkan hitung mundur. TUI ikut berubah karena memakai render yang sama.
-
-**Acceptance criteria:**
-- [x] Kartu akun memuat kedua window untuk kedua grup, berurutan sama di `list` dan TUI.
-- [x] Hitung mundur mingguan memakai format hari (`2d 5h`). Bucket penuh tanpa hitung mundur.
-- [x] Warna bar tetap hijau, kuning, atau merah sesuai pemakaian, dan kartu tetap terbaca di latar biru saat terpilih.
-
-**Verification:**
-- [x] `uv run pytest -q`: test render (`account_text` dengan pool palsu) memeriksa teks grup, `5h`, `weekly`, dan persen.
-- [x] `uv run ruff check .` dan `uv run ruff format --check .`
-- [x] Manual: `AGYSWAP_HOME=$(mktemp -d) uv run agyswap add && AGYSWAP_HOME=… uv run agyswap list` menunjukkan angka mingguan yang sama dengan `agy -p /quota`; screenshot headless TUI (Textual pilot) terlihat rapi. Hapus store sementara dengan `shred -u`.
-
-**Dependencies:** Task 1
-
-**Files likely touched:** `src/agyswap/cli.py`, `tests/test_swap.py`
-
-**Estimated scope:** S
-
-### Checkpoint: Setelah Task 1–2
-- [x] `uv run pytest -q`, `uv run ruff check .`, `uv run ruff format --check .` lolos
-- [x] `uv build` lolos
-- [x] User melihat sendiri `uv run agyswap` dengan dua akun sungguhan: angka 5 jam dan mingguan cocok dengan `/quota` di agy
-
-## Task 3: Perbarui dokumen ke perilaku baru — selesai
-
-**Description:** Ganti semua klaim bahwa kuota berasal dari `fetchAvailableModels` atau hanya 5 jam.
-
-**Acceptance criteria:**
-- [x] `README.md` (Description dan Status: hapus kalimat "The quota shown today only covers the 5-hour window; the weekly window is next.") dan `AGENTS.md` (ringkasan auth: `fetchAvailableModels` tidak lagi dipakai) sesuai perilaku baru.
-- [x] `architecture/OBSERVE.md`, bagian Validasi, mencatat hasil cek manual Task 2.
-- [x] Butir "Kuota" di `TODO.md` dihapus, dan kriteria kuota di `architecture/SPEC.md` dicentang.
-
-**Verification:**
-- [x] `grep -rn fetchAvailableModels README.md AGENTS.md src/` hanya menyisakan penyebutan historis yang disengaja (di `OBSERVE.md`).
-- [x] `uv run ruff check .`
-
-**Dependencies:** Task 2
-
-**Files likely touched:** `README.md`, `AGENTS.md`, `TODO.md`, `architecture/OBSERVE.md`, `architecture/SPEC.md`
-
-**Estimated scope:** M
-
-### Checkpoint: Selesai
-- [x] Semua kriteria sukses baseline di `architecture/SPEC.md` terpenuhi
-- [ ] Siap untuk `/agyswap-review`, lalu `/agyswap-prepare` → `/agyswap-commit` → `/agyswap-ship`
-
-### Catatan rilis
-
-Task 1–3 menambah kemampuan yang terlihat pemakai (kuota mingguan di `list` dan TUI), jadi termasuk **minor** menurut kategori di `/agyswap-ship`. Karena belum ada tag rilis, semuanya masuk rilis pertama `0.1.0` tanpa bump.
-
-## Risks and Mitigations
-
-| Risk | Impact | Mitigation |
-| ---- | ------ | ---------- |
-| `retrieveUserQuotaSummary` tidak terdokumentasi dan bisa berubah di versi agy berikutnya | High | Parser toleran terhadap field opsional dan grup tambahan; `/agyswap-observe` dijalankan ulang setiap `agy --version` berubah |
-| Respons saat bucket benar-benar habis belum terobservasi | Med | Perlakukan `remainingFraction` yang hilang atau 0 sebagai 100% terpakai; dicatat di "Belum terobservasi" |
-| Host `daily-cloudcode-pa` berbeda perilaku dengan `cloudcode-pa` | Low | Keduanya terobservasi menjawab sama; host dijadikan satu konstanta |
-| Request tambahan per akun memicu rate limit | Low | Jumlah request per refresh tetap satu per akun (menggantikan `fetchAvailableModels`); cache dan backoff tetap ada di `TODO.md` |
-
-## Di luar rencana ini
-
-Semua butir lain di `TODO.md` (fitur yang belum ada, `run`/sesi paralel, rilis) butuh spec sendiri sebelum direncanakan.
-
-## Open Questions
-
-- Tidak ada untuk Task 1–3. Urutan grup di kartu mengikuti urutan respons (Gemini dulu, lalu Claude/GPT); bilang kalau mau dibalik.
-
----
-
-# Implementation Plan: render-polish + cli-safety
-
-Ditulis lewat `/agyswap-plan` pada 2026-10-06. Gelombang pertama Capability Map di `architecture/SPEC.md`, dengan spec di `architecture/SPEC.md` ("Spec modul: render-polish") dan `architecture/SPEC.md` ("Spec modul: cli-safety"). Rencana kuota di atas tetap dipertahankan: semua task-nya selesai, dan yang tersisa hanya cek manual oleh user.
-
-## Overview
-
-Dua modul kecil yang tidak saling bergantung:
-
-- `render-polish` menutup Suggestion 2 dan 3 dari `REVIEW.md`.
-- `cli-safety` menambah konfirmasi `remove` (`--yes`/`-y`), exit 2 untuk bare non-TTY, arti baru `--force`, dan flag baru `--ignore-running`. Nama flag ini dipakai karena open question di spec tidak dijawab; mudah diganti sebelum rilis.
-
-## Architecture Decisions
-
-- **Konfirmasi `remove` ada di `main`, bukan di `cmd_remove`.** TUI sudah punya modal konfirmasi sendiri dan memanggil `cmd_remove` langsung, jadi fungsi itu tetap tanpa prompt.
-- **`cmd_switch(target, force=False, ignore_running=False)`.** TUI memanggil `cmd_switch(slot, False)` secara positional, jadi arti argumen kedua sekarang menjadi `force` (lewati sinkronisasi token live) dan TUI tetap aman: tidak memaksa, dan tetap menolak saat agy berjalan.
-- **`--force` hanya melewati baris "capture the live token" untuk login yang sudah tersimpan.** Cabang "Never overwrite a login we have no copy of" tidak disentuh (invariant `AGENTS.md`).
-
-## Dependency Graph
-
-```
-cli.account_text  ← cli.cmd_list, tui        (Task 1)
-cli.main / build_parser                       (Task 2, 3, 4)
-    └── cli.cmd_switch, cli.cmd_remove        (Task 4)
-```
-
-## Task List
-
-## Task 1: Render tanpa spasi di ujung, kolom grup dinamis — selesai
-
-**Description:** `account_text` menghitung lebar kolom grup sebagai `max(12, len(grup terpanjang) + 2)`, dan baris bucket penuh tidak diakhiri spasi.
-
-**Acceptance criteria:**
-- [x] Test baru: baris bucket penuh tanpa spasi di ujung (cek tanpa `rstrip()`), dan mutasi `if p.reset:` → `if True:` membuatnya merah.
-- [x] Test baru: grup palsu dengan nama 20 karakter; kolom window sejajar di semua baris.
-- [x] `test_account_text_groups_5h_and_weekly` tetap hijau (lebar minimum 12, tampilan sekarang tidak berubah).
+- [x] Alias ditolak (exit 1) kalau dipakai akun lain, angka saja, atau berisi `@`; tanpa nama → alias dihapus.
+- [x] `switch <alias>` dan `remove <alias> --yes` mengenai akun yang benar.
+- [x] Store v0.1.0 tanpa field baru tetap jalan di semua perintah.
 
 **Verification:**
 - [x] `uv run pytest -q`, `uv run ruff check .`, `uv run ruff format --check .`
-- [x] Manual: `AGYSWAP_HOME=$(mktemp -d) uv run agyswap add && … list` sama seperti sebelumnya, lalu store di-`shred`.
+- [x] `AGYSWAP_HOME=$(mktemp -d)`: `uv run agyswap add`, `uv run agyswap alias 1 main`, `uv run agyswap list` menampilkan `(main)`; shred store.
 
 **Dependencies:** None · **Files:** `src/agyswap/cli.py`, `tests/test_swap.py` · **Scope:** S
 
-## Task 2: Konfirmasi `remove` dengan `--yes`/`-y` — selesai
+## Task 2 (selesai): Disable/enable, rotasi melewati akun disabled
 
-**Description:** `main` menangani `remove`: cari slot dan email, beri peringatan kalau akun aktif, lalu tanya `Remove account N (email)? [y/N] ` (hanya di TTY). Jawaban selain `y`/`yes` → `Cancelled`, exit 0. Tanpa TTY dan tanpa `--yes` → `error: …` dengan exit 1. `--yes`/`-y` melewati prompt.
-
-**Acceptance criteria:**
-- [x] Input `n` → `Cancelled`, akun tetap ada; input `y` → akun terhapus.
-- [x] Non-TTY tanpa `--yes` → exit 1, akun tetap ada; `--yes` → terhapus tanpa prompt.
-- [x] Akun aktif → peringatan tercetak sebelum prompt.
-
-**Verification:**
-- [x] `uv run pytest -q` (monkeypatch `builtins.input` dan `sys.stdin.isatty`), ruff lolos.
-- [x] Manual dengan store sementara: `uv run agyswap remove 1` bertanya; `echo | uv run agyswap remove 1` exit 1; `uv run agyswap remove 1 --yes` menghapus.
-
-**Dependencies:** None · **Files:** `src/agyswap/cli.py`, `tests/test_swap.py` · **Scope:** S
-
-## Task 3: Bare `agyswap` di luar TTY exit 2 — selesai
-
-**Description:** Saat tidak ada subcommand dan stdin/stdout bukan TTY: `parser.error("no command given — try 'agyswap --help'")`, sehingga exit 2.
+**Description:** `disable`/`enable <target>`. Bare `switch` melewati akun disabled; `switch <akun disabled>` ditolak. `collect_usage` tidak mem-fetch akun disabled dan mengembalikan barisnya dengan `disabled_reason`. `account_text` menampilkan akun disabled redup tanpa bar.
 
 **Acceptance criteria:**
-- [x] `main([])` non-TTY → `SystemExit(2)` dengan pesan `no command given`.
-- [x] Di TTY, bare `agyswap` tetap membuka TUI (tidak berubah).
+- [x] Rotasi melewati akun disabled; semua akun lain disabled → `No enabled account to switch to`, exit 1, keyring tidak ditulis.
+- [x] `switch <disabled>` → exit 1 dengan pesan `enable` di spec.
+- [x] `account_usage` tidak dipanggil untuk akun disabled.
 
 **Verification:**
-- [x] `uv run pytest -q`; manual `uv run agyswap < /dev/null; echo $?` → `2`.
+- [x] `uv run pytest -q`, ruff.
 
-**Dependencies:** None · **Files:** `src/agyswap/cli.py`, `tests/test_swap.py` · **Scope:** XS
+**Dependencies:** Task 1 · **Files:** `src/agyswap/cli.py`, `tests/test_swap.py` · **Scope:** S
+
+## Task 3 (selesai): Tombol `x` di TUI
+
+**Description:** `x` men-toggle disable/enable akun terpilih lewat email, di thread worker yang sama dengan aksi lain. Footer dan tabel tombol di `AGENTS.md`/`README.md` mendapat `x`.
+
+**Acceptance criteria:**
+- [x] Pilot headless: `x` memanggil disable untuk akun aktif-enabled dan enable untuk akun disabled, dengan email.
+- [x] Error tetap tampil tanpa markup dan tanpa isi exception selain tipe.
+
+**Verification:**
+- [x] `uv run pytest -q`, ruff.
+
+**Dependencies:** Task 2 · **Files:** `src/agyswap/tui.py`, `tests/test_swap.py` · **Scope:** S
 
 ### Checkpoint: Setelah Task 1–3
 - [x] `uv run pytest -q`, `uv run ruff check .`, `uv run ruff format --check .` lolos
+- [x] `uv run agyswap` (TUI) dengan store sementara menampilkan alias dan akun disabled
 
-## Task 4: arti baru `--force`, `--ignore-running` baru — selesai
+### Phase 2: quarantine dan usage-cache
 
-**Description:** `switch --ignore-running` melewati penolakan saat agy berjalan. `switch --force` tidak menyalin token live ke slot akun live yang sudah tersimpan. Login live yang belum disimpan tetap diselamatkan, dengan atau tanpa `--force`. Pesan penolakan menyebut `--ignore-running`.
+## Task 4 (selesai): Karantina `invalid_grant`
 
-**Acceptance criteria:**
-- [x] `agy_running()` bernilai `True`: tanpa flag → ditolak; `--force` → tetap ditolak; `--ignore-running` → berhasil.
-- [x] `--force`: slot akun live tetap memakai token lama (token live yang lebih baru tidak disalin); tanpa `--force` token live disalin (test lama).
-- [x] `--force` dengan login live yang belum disimpan → tetap disimpan ke slot baru sebelum keyring ditimpa.
-
-**Verification:**
-- [x] `uv run pytest -q` dengan keyring palsu; ruff lolos.
-- [x] TUI tetap jalan (pilot headless: switch dan remove via modal).
-
-**Dependencies:** None · **Files:** `src/agyswap/cli.py`, `tests/test_swap.py` · **Scope:** S
-
-## Task 5: Dokumen — selesai
-
-**Description:** `README.md` (Usage: `remove --yes`, `switch --force` dan `--ignore-running`), `AGENTS.md` (Invariants: "`--ignore-running` overrides"), dan `TODO.md` (hapus butir konfirmasi `remove`, bare non-TTY, arti `--force`, dan dua butir Kualitas kode).
+**Description:** `fresh_token` melempar `TokenRevoked`. Merge `collect_usage` (di bawah lock) menandai akun `disabled: true`, `disabled_reason: token revoked` hanya kalau token di store masih sama dengan yang di-fetch. `cmd_add` menghapus tanda `token revoked` (bukan `manual`).
 
 **Acceptance criteria:**
-- [x] Tidak ada lagi dokumen yang menyebut `--force` sebagai "abaikan agy yang berjalan".
-- [x] `TODO.md` hanya menyisakan butir yang belum dikerjakan.
+- [x] `_post` palsu dengan `invalid_grant` → akun disabled `token revoked`.
+- [x] Token yang diganti `add` di tengah fetch → tanda tidak dipasang.
+- [x] `add` ulang menghapus `token revoked`; `manual` tetap.
 
 **Verification:**
-- [x] `grep -rn -- "--force" README.md AGENTS.md CONTRIBUTING.md` sesuai arti baru; `uv run ruff check .`
+- [x] `uv run pytest -q`, ruff.
 
-**Dependencies:** Task 2–4 · **Files:** `README.md`, `AGENTS.md`, `TODO.md` · **Scope:** S
+**Dependencies:** Task 2 · **Files:** `src/agyswap/usage.py`, `src/agyswap/cli.py`, `tests/test_swap.py` · **Scope:** S
+
+## Task 5 (selesai): Cache kuota `usage.json`
+
+**Description:** Helper `_write_private`. Fetch sukses menyimpan `{fetched_at, pools}` per email ke `usage.json` (0600, di bawah lock, entri email yang hilang dibuang). Fetch gagal → baris memakai pools dari cache dengan `stale` = umur detik; `account_text` menambahkan `stale, <umur> ago` di samping error.
+
+**Acceptance criteria:**
+- [x] Sukses menulis cache; gagal menampilkan cache + `stale`; tanpa cache → baris error seperti sekarang.
+- [x] `usage.json` mode 0600 dan tidak berisi substring token mana pun.
+- [x] `accounts.json` tetap tidak ditulis ulang kalau token tidak berubah.
+
+**Verification:**
+- [x] `uv run pytest -q`, ruff.
+- [x] Manual (agent): store sementara, `uv run agyswap list` sekali, lalu `HTTPS_PROXY=http://127.0.0.1:9 uv run agyswap list` menampilkan angka terakhir dengan `stale`; shred store dan `usage.json`.
+
+**Dependencies:** Task 2 · **Files:** `src/agyswap/cli.py`, `tests/test_swap.py` · **Scope:** M
+
+## Task 6 (selesai): Backoff 429
+
+**Description:** `fetch_pools` melempar `RateLimited` dengan `retry_after` dari header `Retry-After` (detik atau tanggal HTTP; default 300). `collect_usage` menyimpan `retry_at` di cache dan melewati fetch akun itu sampai waktunya; barisnya menampilkan cache + `rate limited, retry in <m>m`.
+
+**Acceptance criteria:**
+- [x] `Retry-After: 120`, `Retry-After: <tanggal HTTP>`, dan tanpa header → `retry_at` benar.
+- [x] Refresh berikutnya sebelum `retry_at` tidak memanggil `account_usage`; sesudahnya memanggil lagi.
+
+**Verification:**
+- [x] `uv run pytest -q`, ruff.
+
+**Dependencies:** Task 5 · **Files:** `src/agyswap/usage.py`, `src/agyswap/cli.py`, `tests/test_swap.py` · **Scope:** S
+
+### Checkpoint: Setelah Task 4–6
+- [x] Test dan ruff lolos
+- [x] `/agyswap-observe` bagian B: `list` dengan akun sungguhan dan store sementara tanpa error; keyring tidak ditulis (hash sama)
+
+### Phase 3: switch-strategy, auto, json-output
+
+## Task 7 (selesai): `switch --strategy` dan `--threshold`
+
+**Description:** `pick_account(rows, strategy, threshold, current)` murni. `switch --strategy best|next-available [--threshold 90]`: `collect_usage()` tanpa lock → pilih → `cmd_switch(email)`. `--strategy` dengan `<target>` → exit 2. `cmd_switch` mengembalikan dict hasil; `switch_message()` membentuk teks untuk CLI dan TUI.
+
+**Acceptance criteria:**
+- [x] `best` memilih `max(used)` terendah, seri ke slot terkecil; `next-available` mengikuti urutan rotasi; keduanya melewati akun disabled, aktif, ≥ threshold, error tanpa cache, dan cache > 30 menit.
+- [x] Tanpa kandidat → `No account below 90% usage`, exit 1, keyring palsu tidak ditulis.
+- [x] `switch` tanpa `--strategy` dan TUI tetap berperilaku sama (test lama hijau).
+
+**Verification:**
+- [x] `uv run pytest -q`, ruff.
+
+**Dependencies:** Task 5 · **Files:** `src/agyswap/cli.py`, `src/agyswap/tui.py`, `tests/test_swap.py` · **Scope:** M
+
+## Task 8 (selesai): `agyswap auto`
+
+**Description:** `auto [--threshold 90] [--strategy best] [--ignore-running]`. Akun aktif di bawah threshold → no-op exit 0. Di atas → switch lewat `pick_account`. Tanpa kandidat, atau kuota akun aktif tidak terbaca → exit 1 tanpa switch. agy berjalan → ditolak sebelum fetch.
+
+**Acceptance criteria:**
+- [x] Empat cabang di atas, masing-masing dengan pesan dari spec; keyring palsu hanya ditulis di cabang switch.
+- [x] Akun aktif yang belum disimpan diselamatkan (lewat `cmd_switch`).
+
+**Verification:**
+- [x] `uv run pytest -q`, ruff.
+- [ ] Manual (user, dua akun sungguhan): saat satu akun ≥ 90%, `agyswap auto` lalu `agy` masuk sebagai akun lain.
+
+**Dependencies:** Task 7 · **Files:** `src/agyswap/cli.py`, `tests/test_swap.py` · **Scope:** S
+
+## Task 9 (selesai): `--json`
+
+**Description:** `--json` untuk `list`, `status`, `switch`, `auto` dengan bentuk di spec (`"version": 1`, `reset` ISO, `stale`, `max_used` untuk `auto`). `SwapError` dengan `--json` → `{"version": 1, "error": ...}` di stdout, exit code sama.
+
+**Acceptance criteria:**
+- [x] `json.loads` sukses untuk keempat perintah dan untuk error; key sesuai spec.
+- [x] Output tidak berisi substring access/refresh/id token.
+
+**Verification:**
+- [x] `uv run pytest -q`, ruff.
+- [x] `AGYSWAP_HOME=$(mktemp -d)`: `uv run agyswap list --json | python3 -m json.tool` dengan akun sungguhan; shred store.
+
+**Dependencies:** Task 7, 8 · **Files:** `src/agyswap/cli.py`, `tests/test_swap.py` · **Scope:** M
+
+### Checkpoint: Setelah Task 7–9
+- [x] Test dan ruff lolos
+- [ ] Review dengan user sebelum lanjut (perilaku `auto` dan bentuk JSON)
+
+### Phase 4: export-import dan dokumen
+
+## Task 10 (selesai): `export`
+
+**Description:** `export <file> [--force]` menulis envelope `agyswap-export` v1 dengan `O_CREAT|O_EXCL|O_NOFOLLOW`, 0600 (`--force` menghapus file lama dulu). Akun aktif memakai token keyring tanpa mengubah store/keyring. Peringatan di stderr.
+
+**Acceptance criteria:**
+- [x] File 0600, berisi semua akun beserta field opsional; file yang ada ditolak tanpa `--force`.
+- [x] Token akun aktif = token keyring; store dan keyring palsu tidak berubah.
+
+**Verification:**
+- [x] `uv run pytest -q`, ruff.
+
+**Dependencies:** Task 1, 2 · **Files:** `src/agyswap/cli.py`, `tests/test_swap.py` · **Scope:** S
+
+## Task 11 (selesai): `import`
+
+**Description:** `import <file> [--force]`: validasi seluruh file dulu (format, versi, email = claim `email` token), lalu tulis di bawah lock. Email baru → slot berikutnya; email ada → skip, atau ganti token dan field dengan slot tetap kalau `--force`. Tidak menulis keyring.
+
+**Acceptance criteria:**
+- [x] Round-trip export → store kosong → import menghasilkan akun yang sama.
+- [x] Satu entri tidak valid → seluruh import ditolak, store tidak berubah.
+- [x] `Imported N, skipped M` benar untuk skip dan `--force`.
+
+**Verification:**
+- [x] `uv run pytest -q`, ruff.
+
+**Dependencies:** Task 10 · **Files:** `src/agyswap/cli.py`, `tests/test_swap.py` · **Scope:** S
+
+## Task 12 (selesai): Dokumen
+
+**Description:** `README.md` (Usage: perintah dan flag baru, tombol `x`, Status), `AGENTS.md` (Layout: perintah dan `usage.json`; Invariants: quarantine hanya menandai, export 0600 `O_EXCL`, `auto` hanya sekali jalan), `TODO.md` (hapus butir fitur yang selesai), `architecture/SPEC.md` (centang Success Criteria).
+
+**Acceptance criteria:**
+- [x] Setiap perintah dan flag di `uv run agyswap --help` ada di README.
+- [x] `TODO.md` hanya menyisakan yang belum dikerjakan.
+
+**Verification:**
+- [x] `uv run ruff check .`, `uv run ruff format --check .`
+
+**Dependencies:** Task 1–11 · **Files:** `README.md`, `AGENTS.md`, `TODO.md`, `architecture/SPEC.md` · **Scope:** S
 
 ### Checkpoint: Selesai
-- [x] Semua Success Criteria di kedua spec modul terpenuhi
-- [x] `uv build` lolos
-- [ ] Siap untuk `/agyswap-test` → `/agyswap-review` → `/agyswap-prepare` → `/agyswap-commit` → `/agyswap-ship`
+- [x] Semua Success Criteria gelombang 2026-10-08 di `architecture/SPEC.md` terpenuhi (kecuali manual check `auto`, yang dicatat sebagai cek user)
+- [x] `uv build` lolos; wheel hanya `agyswap/` dan `agyswap_cli-*.dist-info/`
+- [ ] Siap untuk `/agyswap-test` → `/agyswap-review` → `/agyswap-prepare` → `/agyswap-commit` → `/agyswap-ship` (`0.2.0`)
 
 ## Risks and Mitigations
 
 | Risk | Impact | Mitigation |
 | ---- | ------ | ---------- |
-| TUI memanggil `cmd_switch(slot, False)` positional; arti argumen kedua berubah | Med | Argumen kedua tetap `False` (tidak memaksa); Task 4 menambah cek pilot TUI |
-| Script lama yang memakai `switch --force` untuk melewati agy berjalan berubah perilaku | Low | Belum ada rilis (0.1.0 belum terbit); dicatat di README |
-| Prompt `remove` menggantung di lingkungan non-interaktif | Med | Prompt hanya saat `sys.stdin.isatty()`; selain itu wajib `--yes` |
-
-## Catatan rilis
-
-`cli-safety` mengubah arti `--force`. Dalam kategori `/agyswap-ship` itu termasuk major, tapi karena masih `0.x` dan belum ada tag rilis, perubahan ini ikut rilis pertama `0.1.0`.
+| `invalid_grant` dan `Retry-After` belum pernah terobservasi (`OBSERVE.md`) | Med | Ikuti respons OAuth/HTTP standar; quarantine hanya menandai (bisa `enable`); validasi ulang lewat `/agyswap-observe` B saat terjadi |
+| Isi kuota saat bucket habis belum terobservasi | Med | Threshold 90% < 100%, dan fraction yang hilang sudah dihitung habis; `auto` tidak bergantung pada nilai tepat saat habis |
+| Race antara fetch tanpa lock dan switch/quarantine | High | Pilihan dan tanda memakai email; quarantine hanya jika token sama; `cmd_switch` tetap memegang lock untuk seluruh mutasinya |
+| `usage.json` atau output `--json` membocorkan token | High | `usage.json` hanya pools; test substring token untuk `usage.json`, `--json`, dan stdout/stderr export |
+| `cmd_switch` berubah tipe kembalian | Low | `switch_message()` dipakai CLI dan TUI; test TUI yang ada menjaga notifikasi |
+| `cli.py` makin besar (±370 → ±600 baris) | Low | Tetap satu modul sesuai Layout; pecah hanya kalau review memintanya |
 
 ## Open Questions
 
-- Nama `--ignore-running` dipakai sebagai default; ganti sebelum build kalau mau nama lain.
+- Batas umur cache untuk strategy (30 menit) adalah default dari plan ini; ganti sebelum Task 7 kalau mau nilai lain.
+

@@ -1,5 +1,5 @@
 <p align="center">
-    <a href="#"><img src=".github/assets/banner-new.webp" width="250"></a>
+    <a href="#"><img src=".github/assets/banner.webp" width="250"></a>
 </p>
 
 <p align="center">

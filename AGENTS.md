@@ -8,9 +8,9 @@ agyswap (`agyswap`) switches between multiple Google accounts for the **Antigrav
 
 ## Layout
 
-- `src/agyswap/cli.py`: the store, keyring access, commands (`add`, `list`/`ls`, `status`, `switch`, `remove`/`rm`, `tui`), and the rendering shared with the TUI. Running bare `agyswap` in a TTY opens the TUI.
+- `src/agyswap/cli.py`: the store, the quota cache (`usage.json`), keyring access, commands (`add`, `list`/`ls`, `status`, `switch`, `alias`, `disable`, `enable`, `auto`, `export`, `import`, `remove`/`rm`, `tui`), account picking (`pick_account`), JSON output, and the rendering shared with the TUI. Running bare `agyswap` in a TTY opens the TUI.
 - `src/agyswap/usage.py`: token refresh and quota fetching.
-- `src/agyswap/tui.py`: the Textual dashboard. Keys: `enter`/`s` switch, `a` add, `d` remove (confirmed), `r` refresh, `j`/`k`, `q`. The look is a user decision; keep it unless asked: the pitch-black theme (`#000000`), the centered title `agyswap - Antigravity CLI Accounts Swap`, the selected card in solid blue `#0178d4`, the orange accent `#ffa62b` (title, `● active`, footer key badges) on a `#141414` footer aligned with the status line, and the command palette disabled.
+- `src/agyswap/tui.py`: the Textual dashboard. Keys: `enter`/`s` switch, `a` add, `d` remove (confirmed), `x` disable/enable, `r` refresh, `j`/`k`, `q`. The look is a user decision; keep it unless asked: the pitch-black theme (`#000000`), the centered title `agyswap - Antigravity CLI Accounts Swap`, the selected card in solid blue `#0178d4`, the orange accent `#ffa62b` (title, `● active`, footer key badges) on a `#141414` footer aligned with the status line, and the command palette disabled.
 - `tests/test_swap.py`: pytest tests using a fake keyring. They never touch the real keyring or the network.
 
 Repo-level files:
@@ -31,7 +31,7 @@ CONTRIBUTING.md    developer setup, agent tooling, releasing
 .github/workflows/ ci.yml (ruff + tests + build on push/PR), publish.yml (PyPI on v* tag), skills.yml (weekly upstream skills check)
 ```
 
-## How agy stores auth (verified on agy 1.3.0, Linux)
+## How agy stores auth (verified on agy 1.3.1, Linux)
 
 The full map, with evidence, is in `architecture/OBSERVE.md`. Summary:
 
@@ -52,8 +52,12 @@ The full map, with evidence, is in `architecture/OBSERVE.md`. Summary:
 - Refuse to switch while a non-updater `agy` process is running (`--ignore-running` overrides). A running agy re-saves its own token.
 - `switch --force` only skips copying the live token back into its slot. It never skips saving an unstored live login.
 - `remove` asks `[y/N]` on a TTY (Enter, Ctrl-D and Ctrl-C mean no) and refuses without `--yes`/`-y` otherwise. It reads the keyring once to warn when the account is the active one (a user decision). The TUI uses its own confirmation modal and calls `cmd_remove` directly.
-- Never write the keyring during usage refresh. Only `switch` writes it.
-- No exception may escape the TUI. Textual's crash report prints locals, which hold tokens and the client secret. TUI handlers catch `Exception`, show `SwapError` text or the exception type only, and call the UI outside the `except` block so the original error is never chained. `usage._post` turns read-time network errors into `UsageError`, and `_secret_tool` turns a keyring timeout into `SwapError`.
+- TUI actions target accounts by email, never by the slot of a possibly stale row, and run `cmd_*` in a thread worker so a locked keyring never freezes the UI. Text from outside (errors, emails) is shown with markup off or `escape()`d.
+- Never write the keyring during usage refresh. Only `switch_account` writes it (`switch`, `switch --strategy`, `auto`). `auto` runs once per call and never in the background.
+- `usage.json` holds quota only, never tokens. It and `accounts.json` are written by `_write_private` under the same `locked_store()` lock.
+- A rejected refresh token (`TokenRevoked`) only disables the account (`disabled_reason: token revoked`), and only if the stored token is still the one that was rejected. Nothing deletes an account except `remove`. `add` lifts a `token revoked` mark but keeps a `manual` one and the alias.
+- `export` writes refresh tokens to a new file with `O_EXCL | O_NOFOLLOW` and mode 0600; `import` validates the whole file (each token's `email` claim must match its entry) before writing, and never writes the keyring.
+- No exception may escape the TUI. Textual's crash report prints locals, which hold tokens and the client secret. TUI handlers catch `Exception`, show `SwapError` text or the exception type only, and call the UI outside the `except` block so the original error is never chained. `usage._post` turns read-time network errors into `UsageError`, and `_secret_tool` turns a keyring timeout into `SwapError`. A `secret-tool lookup` that fails with stderr is a `SwapError`, not "signed out"; only a silent exit 1 means no login.
 
 ## Safety rules for agents
 

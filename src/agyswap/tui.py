@@ -154,7 +154,9 @@ class AgySwapApp(App):
         idx = self.query_one(ListView).index
         return self.rows[idx] if self.rows and idx is not None and idx < len(self.rows) else None
 
-    def _run(self, fn, *args) -> bool:
+    @work(thread=True, group="action")
+    def _run(self, fn, *args) -> None:
+        # Off the UI thread: a locked keyring may take up to 30s to answer.
         try:
             msg, err = fn(*args), None
         except cli.SwapError as e:
@@ -162,24 +164,24 @@ class AgySwapApp(App):
         except Exception as e:
             msg, err = None, f"failed: {type(e).__name__}"
         if err is not None:
-            self.notify(err, severity="error", timeout=8)
-            return False
-        self.notify(msg)
-        return True
+            self.call_from_thread(self.notify, err, severity="error", timeout=8, markup=False)
+            return
+        self.call_from_thread(self.notify, msg, markup=False)
+        self.call_from_thread(self.action_refresh)
 
     # --- actions ----------------------------------------------------------
+    # Rows can be stale (another terminal may reuse a slot); target accounts by email.
 
     def action_switch(self) -> None:
         row = self._selected()
-        if row and self._run(cli.cmd_switch, row["slot"], False):
-            self.action_refresh()
+        if row:
+            self._run(cli.cmd_switch, row["email"], False)
 
     def on_list_view_selected(self) -> None:
         self.action_switch()
 
     def action_add(self) -> None:
-        if self._run(cli.cmd_add, None):
-            self.action_refresh()
+        self._run(cli.cmd_add, None)
 
     def action_remove(self) -> None:
         row = self._selected()
@@ -187,10 +189,10 @@ class AgySwapApp(App):
             return
 
         def done(ok: bool | None) -> None:
-            if ok and self._run(cli.cmd_remove, row["slot"]):
-                self.action_refresh()
+            if ok:
+                self._run(cli.cmd_remove, row["email"])
 
-        self.push_screen(Confirm(f"Remove account {row['slot']}: [b]{row['email']}[/b]?"), done)
+        self.push_screen(Confirm(f"Remove account {row['slot']}: [b]{escape(row['email'])}[/b]?"), done)
 
     def action_cursor_down(self) -> None:
         self.query_one(ListView).action_cursor_down()

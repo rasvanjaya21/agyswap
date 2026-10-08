@@ -12,6 +12,7 @@ Hanya yang masih rusak atau belum diputuskan. Rencana kerja masuk `architecture/
 
 - `~/.agyswap` (atau `AGYSWAP_HOME`) yang sudah ada tidak dikencangkan ke 0700: `mkdir(exist_ok=True)` tidak mengubah mode folder yang sudah ada (`src/agyswap/cli.py`, `_write_private` dan `locked_store`). Perbaikan: cek `st_mode & 0o077` dan pemiliknya, lalu tolak atau `chmod 0700`.
 - `hatchling>=1.27,<2` tidak di-pin persis (`pyproject.toml`); uv.lock tidak mencakup build backend.
+- HTTP 403 dari endpoint kuota hanya tampil sebagai `quota request failed (HTTP 403)` (`src/agyswap/usage.py`, `fetch_pools`). Untuk akun yang diblokir Google, body-nya berisi `reason: TOS_VIOLATION` (`architecture/OBSERVE.md`). Perbaikan: tampilkan `status`/`reason` dari body error (tanpa token), misalnya `disabled by Google (TOS_VIOLATION), appeal required`, dan pertimbangkan menandai akun itu `disabled`.
 - Belum diputuskan: `auto` saat tidak ada yang login langsung switch ke akun terbaik. Spec belum menyebutnya.
 
 ## Fitur yang belum ada

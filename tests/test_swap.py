@@ -15,6 +15,26 @@ def refresh_of(token):
     return json.loads(token)["token"]["refresh_token"]
 
 
+def test_existing_store_dir_is_tightened_and_must_be_ours(tmp_path, monkeypatch):
+    import os
+
+    import pytest
+
+    home = tmp_path / "home"
+    home.mkdir(mode=0o755)
+    home.chmod(0o755)
+    monkeypatch.setenv("AGYSWAP_HOME", str(home))
+    cli.save_store({"accounts": {}})
+    assert home.stat().st_mode & 0o777 == 0o700
+    home.chmod(0o750)  # group access alone is enough to tighten
+    with cli.locked_store():
+        pass
+    assert home.stat().st_mode & 0o777 == 0o700
+    monkeypatch.setattr(os, "getuid", lambda: home.stat().st_uid + 1)
+    with pytest.raises(cli.SwapError, match="not owned by you"):
+        cli.save_store({"accounts": {}})
+
+
 def setup(tmp_path, monkeypatch, running=False):
     keyring = {}
     monkeypatch.setenv("AGYSWAP_HOME", str(tmp_path))
@@ -392,13 +412,57 @@ def test_tui_survives_refresh_on_empty_store(monkeypatch):
     assert running
 
 
+def test_tui_row_keys_do_nothing_on_an_empty_store(monkeypatch):
+    import asyncio
+
+    import pytest
+
+    from agyswap import tui
+
+    monkeypatch.setattr(cli, "collect_usage", lambda: [])
+    for name in ("cmd_switch", "cmd_remove", "cmd_disable", "cmd_enable", "cmd_alias"):
+        monkeypatch.setattr(cli, name, lambda *a: pytest.fail("no row to act on"))
+
+    async def go():
+        app = tui.AgySwapApp()
+        async with app.run_test() as pilot:
+            await app.workers.wait_for_complete()
+            for key in ("s", "enter", "d", "x", "n"):
+                await pilot.press(key)
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            return app.is_running, type(app.screen).__name__
+
+    assert asyncio.run(go()) == (True, "Screen")  # no crash, no modal
+
+
 def test_tui_shows_refresh_error_instead_of_exiting(monkeypatch):
     def fail():
-        raise cli.SwapError("secret-tool not found")
+        raise cli.SwapError("secret-tool not found, run `agyswap list`", tui="secret-tool not found, press [b]r[/b]")
 
     running, status = _run_tui(monkeypatch, fail)
     assert running
-    assert "secret-tool not found" in status
+    assert "secret-tool not found, press [b]r[/b]" in status  # the TUI wording, shown verbatim
+
+
+def test_tui_first_load_failure_replaces_the_loading_text(monkeypatch):
+    import asyncio
+
+    from agyswap import tui
+
+    def fail():
+        raise cli.SwapError("boom")
+
+    monkeypatch.setattr(cli, "collect_usage", fail)
+
+    async def go():
+        app = tui.AgySwapApp()
+        async with app.run_test() as pilot:
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            return str(app.query_one("#loading").render()), app.query_one(tui.ListView).display
+
+    assert asyncio.run(go()) == ("Could not load accounts.", False)
 
 
 def test_post_keeps_http_errors_for_callers(monkeypatch):
@@ -656,7 +720,7 @@ def test_tui_targets_accounts_by_email_and_escapes_markup(tmp_path, monkeypatch)
 
     def fake_switch(target, force):
         calls.append(target)
-        raise cli.SwapError("Failed to write keyring: [bold unclosed")
+        raise cli.SwapError("Run `agyswap list` [bold unclosed", tui="Failed to write keyring: [bold unclosed")
 
     monkeypatch.setattr(cli, "cmd_switch", fake_switch)
 
@@ -673,6 +737,165 @@ def test_tui_targets_accounts_by_email_and_escapes_markup(tmp_path, monkeypatch)
     running, notes = asyncio.run(go())
     assert running and calls == ["a@x.com"]
     assert ("Failed to write keyring: [bold unclosed", False) in notes  # shown verbatim, never parsed
+
+
+def test_tui_cursor_starts_on_active_and_stays_visible_on_its_email(monkeypatch):
+    import asyncio
+
+    from agyswap import tui
+
+    rows = [{"slot": str(i), "email": f"{i}@x.com", "active": i == 2, "pools": [], "error": None} for i in (1, 2, 3)]
+    monkeypatch.setattr(cli, "collect_usage", lambda: list(rows))
+
+    async def go():
+        app = tui.AgySwapApp()
+        async with app.run_test() as pilot:
+
+            async def refresh():
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+                lv = app.query_one(tui.ListView)
+                return app._selected()["email"], [c.highlighted for c in lv.children]
+
+            seen = [await refresh()]
+            await pilot.press("j")
+            rows.reverse()  # another terminal reordered the slots
+            app.action_refresh()
+            seen.append(await refresh())
+            rows.pop(0)  # and removed the highlighted account
+            app.action_refresh()
+            seen.append(await refresh())
+            return seen
+
+    assert asyncio.run(go()) == [
+        ("2@x.com", [False, True, False]),
+        ("3@x.com", [True, False, False]),
+        ("2@x.com", [True, False]),  # gone: back to the active account
+    ]
+
+
+def test_tui_alias_best_auto_export_import_reach_their_commands(monkeypatch):
+    import asyncio
+    from pathlib import Path
+
+    from agyswap import tui
+
+    row = {"slot": "1", "email": "[b]a@x.com", "alias": "old", "active": True, "pools": [], "error": None}
+    monkeypatch.setattr(cli, "collect_usage", lambda: [row])
+    calls = []
+    monkeypatch.setattr(cli, "cmd_alias", lambda t, n: calls.append(("alias", t, n)) or "ok")
+    monkeypatch.setattr(tui, "_switch_best", lambda: calls.append(("best",)) or "ok")
+    monkeypatch.setattr(tui, "_auto", lambda: calls.append(("auto",)) or "ok")
+    monkeypatch.setattr(cli, "cmd_export", lambda path: calls.append(("export", path)) or "ok")
+    monkeypatch.setattr(cli, "cmd_import", lambda path: calls.append(("import", path)) or "ok")
+    monkeypatch.setenv("HOME", "/home/u")
+
+    async def go():
+        app = tui.AgySwapApp()
+        async with app.run_test() as pilot:
+
+            async def keys(*ks):
+                for k in ks:
+                    await pilot.press(k)
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+
+            await keys()
+            await keys("n")
+            prompt = (app.screen.query_one(tui.Input).value, str(app.screen.query_one(tui.Label).render()))
+            await keys("ctrl+u", *"  work  ", "enter")  # rename, trimmed
+            await keys("n", "ctrl+u", *"   ", "enter")  # blank clears
+            await keys("n", "escape")  # cancel does nothing
+            await keys("b", "u")
+            for close in ("escape", "m"):
+                await keys("m", close)  # closing More runs nothing
+                assert not isinstance(app.screen, tui.More)
+            await keys("m", "b", "m", "u")  # More forwards its keys
+            opened = []
+            for key in ("e", "i"):  # ...and opens the right prompts
+                await keys("m", key)
+                opened.append(str(app.screen.query_one(tui.Label).render()))
+                await keys("escape")
+            await keys("e", "enter")  # default name
+            await keys("e", "ctrl+u", *"~/x.json", "enter")
+            await keys("e", "ctrl+u", "enter", "i", "enter")  # an empty path runs nothing
+            await keys("i", *"y.json", "enter")
+            await keys("i", *"~/z.json", "enter")
+            return prompt, opened, sorted(k for k, b in app.active_bindings.items() if b.binding.show)
+
+    prompt, opened, footer = asyncio.run(go())
+    assert [q.split()[0] for q in opened] == ["Export", "Import"]
+    assert prompt == ("old", "Alias for account 1: [b]a@x.com")  # prefilled; the email shown verbatim
+    assert footer == ["a", "d", "m", "n", "q", "r", "s", "x"]  # b/u/e/i live behind More
+    assert calls == [
+        ("alias", "[b]a@x.com", "work"),
+        ("alias", "[b]a@x.com", None),
+        ("best",),
+        ("auto",),
+        ("best",),
+        ("auto",),
+        ("export", "/home/u/agyswap-export.agyswap"),
+        ("export", "/home/u/x.json"),
+        ("import", str(Path("y.json").resolve())),
+        ("import", "/home/u/z.json"),
+    ]
+
+
+def test_tui_best_and_auto_use_the_cli_defaults_and_messages(monkeypatch):
+    from agyswap import tui
+
+    r = {"switched": True, "saved_slot": None, "slot": "2", "email": "b@x.com", "max_used": 0.95}
+    seen = []
+    monkeypatch.setattr(cli, "cmd_switch_strategy", lambda strategy, threshold: seen.append((strategy, threshold)) or r)
+    monkeypatch.setattr(cli, "cmd_auto", lambda: seen.append("auto") or r)
+    assert tui._switch_best() == "Switched to account 2: b@x.com"
+    assert tui._auto() == "Switched to account 2: b@x.com (max 95% used)"
+    monkeypatch.setattr(cli, "cmd_export", lambda path: f"Exported 2 accounts to {path}")
+    assert tui._export("/x") == "Exported 2 accounts to /x. It holds refresh tokens; keep it private."
+    assert seen == [("best", 90), "auto"]
+
+
+def test_tui_overlapping_refreshes_never_duplicate_cards(monkeypatch):
+    import asyncio
+
+    from agyswap import tui
+
+    rows = [{"slot": str(i), "email": f"{i}@x.com", "active": i == 1, "pools": [], "error": None} for i in (1, 2, 3)]
+    monkeypatch.setattr(cli, "collect_usage", lambda: rows)
+
+    async def go():
+        app = tui.AgySwapApp()
+        async with app.run_test() as pilot:
+            await app.workers.wait_for_complete()
+            await asyncio.gather(app._show(rows), app._show(rows))  # two refreshes finishing together
+            await pilot.pause()
+            return len(app.query_one(tui.ListView).children)
+
+    assert asyncio.run(go()) == 3
+
+
+def test_tui_shows_loading_in_the_middle_until_the_first_refresh(monkeypatch):
+    import asyncio
+    import threading
+
+    from agyswap import tui
+
+    gate = threading.Event()
+    row = {"slot": "1", "email": "a@x.com", "active": True, "pools": [], "error": None}
+    monkeypatch.setattr(cli, "collect_usage", lambda: gate.wait(5) and [row])
+
+    async def go():
+        app = tui.AgySwapApp()
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            loading, lv = app.query_one("#loading"), app.query_one(tui.ListView)
+            before = (str(loading.render()), loading.display, lv.display)
+            gate.set()
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            return before, (loading.display, lv.display, app.focused is lv)
+
+    assert asyncio.run(go()) == (("Loading accounts…", True, False), (False, True, True))
 
 
 def _add(kr, *emails):
@@ -700,6 +923,54 @@ def test_alias_set_clear_and_target(tmp_path, monkeypatch):
 def test_account_text_shows_alias():
     row = {"slot": "1", "email": "a@x.com", "alias": "work", "active": False, "pools": [], "error": None}
     assert cli.account_text(row).plain.splitlines()[0] == " 1  a@x.com (work)"
+
+
+def test_errors_give_cli_and_tui_their_own_instructions(tmp_path, monkeypatch):
+    import pytest
+
+    kr = setup(tmp_path, monkeypatch)
+    _add(kr, "a@x.com", "b@x.com")
+    cli.cmd_disable("1")
+    with pytest.raises(cli.SwapError) as e:
+        cli.switch_account("1")
+    assert str(e.value) == "Account 1 is disabled (manual). Run `agyswap enable 1` first."
+    assert e.value.tui == "Account 1 is disabled (manual). Press x on it first."
+    monkeypatch.setattr(cli, "agy_running", lambda: True)
+    for call in (lambda: cli.switch_account("2"), lambda: cli.cmd_switch_strategy("best", 90), cli.cmd_auto):
+        with pytest.raises(cli.SwapError) as e:
+            call()
+        assert "--ignore-running" in str(e.value) and "--" not in e.value.tui
+
+
+def test_every_cli_instruction_reachable_from_the_tui_has_a_tui_wording():
+    import ast
+    import inspect
+
+    cli_only = {
+        "--slot must be 1 or higher.",
+        "Refusing to remove without confirmation. Pass --yes to remove from a script.",
+    }
+
+    def text(node):
+        if isinstance(node, ast.Constant):
+            return str(node.value)
+        if isinstance(node, ast.JoinedStr):
+            return "".join(text(v) if isinstance(v, ast.Constant) else "{}" for v in node.values)
+        if isinstance(node, ast.Name):
+            return str(getattr(cli, node.id))
+        return ""
+
+    for call in ast.walk(ast.parse(inspect.getsource(cli))):
+        if not (isinstance(call, ast.Call) and getattr(call.func, "id", None) == "SwapError" and call.args):
+            continue
+        msg = text(call.args[0])
+        tui = next((text(k.value) for k in call.keywords if k.arg == "tui"), None)
+        if msg in cli_only:
+            continue
+        if "`agyswap " in msg or " --" in msg or "(--" in msg:
+            assert tui is not None, msg
+        if tui is not None:
+            assert "`agyswap" not in tui and "--" not in tui, tui
 
 
 def test_rotation_skips_disabled_accounts(tmp_path, monkeypatch):
@@ -1331,6 +1602,7 @@ def test_import_rejects_malformed_entries(tmp_path, monkeypatch):
         {"email": "a@x.com", "token": json.dumps(no_refresh)},  # agy could not use it
         {"email": "a@x.com", "token": good, "disabled": "no"},  # not a bool
         {"email": "a\x1b]0;pwn\x07@x.com", "token": make_token("a\x1b]0;pwn\x07@x.com", "r")},  # terminal escape
+        {"email": "a@x.com", "token": good, "disabled": True, "disabled_reason": "\x1b[2Jx"},  # escape via reason
     ]
     for entry in bad_entries:
         assert cli.main(["import", _export_file(tmp_path, entry)]) == 1
@@ -1338,16 +1610,18 @@ def test_import_rejects_malformed_entries(tmp_path, monkeypatch):
     assert cli.load_store()["accounts"] == {}
 
 
-def test_import_drops_invalid_alias_and_keeps_own_alias_on_force(tmp_path, monkeypatch):
+def test_import_drops_invalid_alias_and_keeps_own_alias_on_force(tmp_path, monkeypatch, capsys):
     kr = setup(tmp_path, monkeypatch)
     _add(kr, "a@x.com")
     cli.cmd_alias("1", "work")
     own = {"email": "a@x.com", "alias": "work", "token": make_token("a@x.com", "r-new")}
     digits = {"email": "b@x.com", "alias": "42", "token": make_token("b@x.com", "r-b")}
-    assert cli.main(["import", _export_file(tmp_path, own, digits), "--force"]) == 0
+    escape = {"email": "c@x.com", "alias": "w\x1b]0;pwn\x07", "token": make_token("c@x.com", "r-c")}
+    assert cli.main(["import", _export_file(tmp_path, own, digits, escape), "--force"]) == 0
     accounts = cli.load_store()["accounts"]
     assert accounts["1"]["alias"] == "work" and refresh_of(accounts["1"]["token"]) == "r-new"
-    assert "alias" not in accounts["2"]
+    assert "alias" not in accounts["2"] and "alias" not in accounts["3"]
+    assert "\x1b" not in capsys.readouterr().out  # the dropped alias is reported escaped, never raw
 
 
 def test_list_exit_code_ignores_disabled_accounts(tmp_path, monkeypatch):

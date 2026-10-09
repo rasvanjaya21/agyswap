@@ -43,7 +43,7 @@ agyswap needs Linux with a Secret Service keyring (GNOME Keyring or KWallet) and
 
 | Variable | What it does |
 | --- | --- |
-| `AGYSWAP_HOME` | Where agyswap keeps its account store. Defaults to `~/.agyswap`. The store, `accounts.json`, holds refresh tokens and is written with mode `0600`; the quota cache `usage.json` sits next to it. |
+| `AGYSWAP_HOME` | Where agyswap keeps its account store. Defaults to `~/.agyswap`. The store, `accounts.json`, holds refresh tokens and is written with mode `0600`; the quota cache `usage.json` sits next to it. The folder is kept at `0700` (an existing one is tightened, and one owned by another user is refused), so point it at a folder of its own, never at `~` or a shared folder. |
 
 ## Usage
 
@@ -60,7 +60,7 @@ Signing out of agy does not revoke the token agyswap already stored.
 
 `agyswap add --slot 3` stores the account in slot 3 (moving it if it is already stored elsewhere); it refuses a slot that holds another account.
 
-Run `agyswap` on its own (or `agyswap tui`) for the dashboard. It shows every account's quota for both model groups (Gemini, and Claude/GPT), each with its 5-hour and weekly window and reset times, and marks the active account. Usage refreshes every 2 minutes.
+Run `agyswap` on its own (or `agyswap tui`) for the dashboard. It shows every account's quota for both model groups (Gemini, and Claude/GPT), each with its 5-hour and weekly window and reset times, and marks the active account. Usage refreshes every 2 minutes. The cursor starts on the active account and stays on the same account across refreshes.
 
 | Key | Action |
 | --- | --- |
@@ -68,7 +68,13 @@ Run `agyswap` on its own (or `agyswap tui`) for the dashboard. It shows every ac
 | `a` | Add the account agy is signed in with |
 | `d` | Remove the highlighted account |
 | `x` | Disable or enable the highlighted account |
-| `r` | Refresh usage |
+| `n` | Set or clear the highlighted account's alias |
+| `m` | Show the shortcuts below that are not in the footer |
+| `b` | Switch to the account with the most quota left (`switch --strategy best`) |
+| `u` | Switch away only if the active account is at 90% or more (`auto`) |
+| `e` | Export all accounts, refresh tokens included, to a file (default `~/agyswap-export.agyswap`) |
+| `i` | Import accounts from an export file |
+| `r` | Refresh usage of all accounts |
 | `j` / `k` | Move |
 | `q` | Quit |
 

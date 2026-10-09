@@ -1,16 +1,17 @@
 # Test
 
-Ditulis lewat `/agyswap-test` pada 2026-10-06, diperbarui 2026-10-08 setelah build dan review rilis v0.2.0. Suite: `uv run pytest -q` → **94 passed**.
+Ditulis lewat `/agyswap-test` pada 2026-10-06, diperbarui 2026-10-08 (rilis v0.2.0) dan 2026-10-09 (gelombang paritas CLI–TUI, persiapan 0.3.0). Suite: `uv run pytest -q` → **104 passed**.
 
 Coverage diukur ad hoc dengan `uv run --with coverage coverage run -m pytest`, tanpa menambah dependency ke `pyproject.toml`:
 
-| File | Statement | Tercakup | Sebelumnya (v0.1.0) |
-| ---- | --------- | -------- | ------------------- |
-| `src/agyswap/cli.py` | 587 | 97% | 88% |
-| `src/agyswap/usage.py` | 132 | 89% | 76% |
-| `src/agyswap/tui.py` | 109 | 96% (Textual pilot) | 79% |
-| `src/agyswap/__init__.py` | 5 | 60% | sebagian |
-| **Total** | 833 | **95%** | 82% |
+| File | Statement | Tercakup | v0.2.0 |
+| ---- | --------- | -------- | ------ |
+| `src/agyswap/cli.py` | 597 | 97% | 97% |
+| `src/agyswap/usage.py` | 132 | 89% | 89% |
+| `src/agyswap/tui.py` | 176 | 97% (Textual pilot) | 96% |
+| `src/agyswap/__init__.py` | 5 | 60% | 60% |
+| `src/agyswap/__main__.py` | 3 | 0% | 0% |
+| **Total** | 913 | **95%** | 95% |
 
 ## Apa yang dibuktikan setiap test
 
@@ -116,6 +117,28 @@ Mutasi yang diperiksa (mutan harus membuat test merah): token pengganti di karan
 
 Test reproduksi untuk temuan review (merah dulu) dan test yang mematikan mutan yang hidup. Rinciannya per temuan ada di `architecture/REVIEW.md`: `test_auto_skips_account_revoked_in_the_same_run`, `test_auto_leaves_a_disabled_active_account`, `test_retry_after_is_clamped`, `test_import_rejects_malformed_entries`, `test_import_drops_invalid_alias_and_keeps_own_alias_on_force`, `test_list_exit_code_ignores_disabled_accounts`, `test_export_file_errors_are_swap_errors`, `test_switch_rejects_flags_that_would_be_ignored`, `test_old_cache_is_not_used_to_pick`, `test_agy_running_ignores_only_the_bg_updater`, `test_add_slot_move_keeps_alias_and_disable`, `test_threshold_is_strict`, `test_auto_refuses_before_saving_or_fetching_while_agy_runs`, `test_auto_json_reports_saved_slot_after_switch`, `test_list_json_marks_stale_and_disabled_reason`, `test_cache_survives_while_account_is_disabled`, `test_switch_to_disabled_current_account_is_already_on`, `test_alias_can_change_case_on_same_account`, `test_usage_refresh_never_writes_the_keyring`.
 
+### Gelombang 2026-10-09 (paritas CLI–TUI, persiapan 0.3.0)
+
+Setiap test di bawah dijalankan terhadap kode `HEAD` (`c5b6ce4`) dan gagal karena perilakunya belum ada; 92 test lain tetap lulus di sana.
+
+- `test_tui_cursor_starts_on_active_and_stays_visible_on_its_email`: kursor mulai di akun active, tetap di email yang sama setelah urutan berubah, kembali ke active kalau email itu hilang, dan tepat satu item tersorot (bug sorotan hilang setelah refresh).
+- `test_tui_alias_best_auto_export_import_reach_their_commands`: `n` (ganti, kosong menghapus, `esc` batal), `b`, `u`, `m`+`esc`, `m`+`b`, `e` dengan default `agyswap-export.agyswap` dan dengan `~`, `i` batal dan isi.
+- `test_tui_best_and_auto_use_the_cli_defaults_and_messages`: `b` memakai `best`/90, dan pesan `b`/`u` sama dengan pesan CLI.
+- `test_tui_shows_loading_in_the_middle_until_the_first_refresh`: `Loading accounts…` tampil, daftar tersembunyi, lalu daftar tampil dan mendapat fokus.
+- `test_tui_first_load_failure_replaces_the_loading_text`: muat pertama gagal → `Could not load accounts.`, daftar tetap tersembunyi.
+- `test_errors_give_cli_and_tui_their_own_instructions`: `str(e)` dan `e.tui` untuk akun disabled dan agy berjalan.
+- `test_tui_shows_refresh_error_instead_of_exiting` dan `test_tui_targets_accounts_by_email_and_escapes_markup` (diperluas): baris status dan toast menampilkan `e.tui`, bukan teks CLI, tetap tanpa markup.
+- `test_existing_store_dir_is_tightened_and_must_be_ours`: folder store `0755` menjadi `0700` lewat `save_store` dan `locked_store`; folder milik user lain ditolak.
+
+Ditambah lewat review rilis 0.3.0 (`architecture/REVIEW.md`; setiap mutan yang hidup dibuktikan mati, 18/18):
+
+- `test_tui_overlapping_refreshes_never_duplicate_cards`: dua `_show` bersamaan tidak menggandakan kartu.
+- `test_tui_row_keys_do_nothing_on_an_empty_store`: `s`, `enter`, `d`, `x`, `n` tanpa akun tidak crash dan tidak membuka modal.
+- `test_every_cli_instruction_reachable_from_the_tui_has_a_tui_wording`: AST `cli.py`, setiap `SwapError` yang menyebut perintah/flag CLI punya `tui=` tanpa perintah CLI.
+- Diperluas: `test_tui_alias_best_auto_export_import_reach_their_commands` (semua tombol More, `.strip()`, `~`, path kosong, prefill alias, email apa adanya, set tombol footer, default `~/agyswap-export.agyswap`), `test_import_rejects_malformed_entries` dan `test_import_drops_invalid_alias_and_keeps_own_alias_on_force` (karakter kontrol), `test_errors_give_cli_and_tui_their_own_instructions` (`cmd_switch_strategy`, `cmd_auto`), `test_existing_store_dir_is_tightened_and_must_be_ours` (`0750`).
+
+Dicek dengan pilot headless, tanpa test permanen (bagian "Validasi" `architecture/OBSERVE.md`): posisi toast di atas baris status, lebar footer 89 kolom, scrollbar `0` dan arrow keys menggulir.
+
 ## Jalur yang belum dites otomatis
 
 Diurutkan dari risiko tertinggi:
@@ -124,13 +147,15 @@ Diurutkan dari risiko tertinggi:
 - **`fresh_token` error lain:** HTTP selain `invalid_client`/`invalid_grant` dan `URLError` saat refresh.
 - **Pembungkus `secret-tool` (`write_token` gagal)**: hanya timeout dan lookup yang dites.
 - **`cmd_status` teks**, pesan `No accounts stored` di `switch`, dan `tui` lewat `main` (dispatch).
-- **TUI:** `enter` (on_list_view_selected) dan `a` hanya lewat jalur `_run` yang sama dengan `s`.
+- **TUI:** `enter` (on_list_view_selected), `a`, `k`, dan return awal `n`/`d` saat daftar kosong; semuanya lewat jalur `_run`/`_selected` yang sama dengan tombol yang sudah dites.
+- **TUI:** posisi toast, lebar footer, dan scrollbar hanya dicek dengan pilot sekali jalan dan cek manual user.
 
 ## Cek manual
 
 Sudah dilakukan (agent, store sementara, akun sungguhan, hash keyring tidak berubah): `add`, `alias`, `list`, `list` dengan jaringan diputus (penanda `stale`), `list --json`, `auto --json` (satu akun, 58% → no-op).
 
+Dikonfirmasi user 2026-10-09 di TUI sungguhan: sorotan tetap terlihat setelah `r` dan mulai di akun active; `m`, `n`, `e` (file `0600`), `i`, `u`; posisi toast; `Press x on it first.`; switch saat agy jalan ditolak tanpa `--ignore-running`; `Loading accounts…`; tanpa scrollbar. Juga `agyswap auto` dengan dua akun sungguhan saat satu akun ≥ 90%, lalu `agy` masuk sebagai akun lain.
+
 Menunggu user:
 
-- `agyswap auto` dengan dua akun sungguhan saat satu akun ≥ 90%, lalu `agy` masuk sebagai akun lain.
 - Saat kuota 5h sebuah akun benar-benar habis: kabari agent untuk probe read-only `retrieveUserQuotaSummary` (`architecture/OBSERVE.md`).

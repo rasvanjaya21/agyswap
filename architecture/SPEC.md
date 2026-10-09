@@ -86,7 +86,7 @@ skills/, scripts/, docs/, graphify-out/   tooling agent (lihat AGENTS.md)
 - Tema pitch black. Judul `agyswap - Antigravity CLI Accounts Swap` di tengah.
 - Kartu akun: kartu terpilih berlatar biru `#0178d4`, `● active` oranye `#ffa62b`, bar hijau/kuning/merah sesuai pemakaian.
 - Footer abu gelap `#141414` dengan badge key oranye, sejajar dengan baris status (jumlah akun, jam update, interval refresh 2 menit).
-- Tombol: `enter`/`s` switch, `a` add, `d` remove (konfirmasi `y`/`n`), `x` disable/enable, `r` refresh, `j`/`k`, `q`. Command palette dimatikan.
+- Tombol: `enter`/`s` switch, `a` add, `d` remove (konfirmasi `y`/`n`), `x` disable/enable, `r` refresh, `j`/`k`, `q`. Command palette dimatikan. Tombol, kursor, dan tampilan TUI saat ini: lihat "Gelombang 2026-10-09" di bawah.
 - Refresh kuota dan semua aksi berjalan di worker thread, tidak memblokir UI; aksi menargetkan akun lewat email.
 
 ### Distribusi dan dokumentasi
@@ -449,3 +449,108 @@ Dijawab user 2026-10-08 ("oke, setujui, langsung ke 0.2.0"): spec disetujui bese
 2. **Error JSON di stdout** untuk `--json`: disetujui.
 3. **Rilis:** langsung `0.2.0` (minor: perintah dan flag baru, kompatibel ke belakang). Perbaikan halaman PyPI ikut di rilis ini; tidak ada `0.1.1`.
 
+
+# Gelombang 2026-10-09: paritas CLI–TUI dan rapikan TUI
+
+Ditulis lewat `/agyswap-spec` setelah `/agyswap-observe` 2026-10-09. Spec ini disusun **setelah** kodenya ada di working tree (dibangun bertahap atas permintaan user dalam sesi yang sama); isinya merekam keputusan user, dan `/agyswap-plan` serta `/agyswap-build` memakainya untuk memverifikasi, bukan menulis ulang. Satu capability (TUI), jadi tanpa capability map.
+
+Fakta agy: tidak ada yang baru. Semua perubahan ada di TUI dan teks pesan; agy masih 1.3.1 seperti di `architecture/OBSERVE.md`. Status `active`, larangan switch saat agy berjalan, dan kuota tetap memakai peta yang ada ("Proses", "Kuota per window").
+
+## Objective
+
+Pemakai `agy` dengan beberapa akun Google bisa melakukan semua pekerjaan sehari-hari dari TUI tanpa kembali ke CLI, dan TUI tidak pernah menyuruh mereka mengetik perintah CLI. Kursor TUI selalu terlihat dan selalu menunjuk akun yang akan dikenai aksi.
+
+Keputusan user (2026-10-09):
+
+- Sorotan biru tidak pernah hilang. Saat TUI dibuka kursor ada di akun active; setelah refresh kursor tetap di email yang sama (bukan fallback "kalau tidak ada sorotan, pakai active").
+- Fitur CLI yang masuk TUI: alias, switch terbaik, auto, export, import.
+- Switch dari TUI saat agy berjalan tetap ditolak; tidak ada override di TUI.
+- Footer: label `Add` dan `Toggle`; `b`/`u`/`e`/`i` tidak tampil di footer, melainkan di modal `m` More yang diletakkan paling akhir (setelah Quit).
+- Tulisan `Loading accounts…` di tengah layar sampai muat pertama selesai.
+- Toast tetap di kanan bawah, naik dua baris supaya tidak menutupi baris status.
+- CLI dan TUI masing-masing memakai instruksinya sendiri.
+- Tidak ada scrollbar; gulir dengan arrow keys (`j`/`k` tetap jalan).
+
+## Perilaku
+
+### Kursor
+
+- Muat pertama: kursor di akun `active`; kalau tidak ada yang active, di baris pertama.
+- Setiap refresh (`r`, interval 2 menit, setelah aksi): kursor tetap di email yang sama walau urutan slot berubah; kalau email itu sudah tidak ada, pindah ke akun active.
+- Baris yang dikenai `s`/`enter`, `d`, `x`, `n` selalu baris yang tersorot. Tidak ada keadaan "index ada tapi tidak tersorot".
+- `r` me-refresh semua akun (tidak berubah).
+
+### Tombol
+
+| Tombol | Footer | Aksi | Memanggil |
+| --- | --- | --- | --- |
+| `enter`/`s` | Switch | switch ke akun tersorot | `cmd_switch(email)` |
+| `a` | Add | simpan login agy saat ini | `cmd_add()` |
+| `d` | Remove | hapus akun tersorot setelah konfirmasi `y`/`n` | `cmd_remove(email)` |
+| `x` | Toggle | disable/enable akun tersorot | `cmd_disable`/`cmd_enable` |
+| `n` | Alias | modal satu baris, terisi alias lama; kosong menghapus, `esc` batal | `cmd_alias(email, name or None)` |
+| `r` | Refresh | refresh usage semua akun | `collect_usage()` |
+| `q` | Quit | keluar | |
+| `m` | More | modal daftar `b`/`u`/`e`/`i`; menekan salah satunya menutup modal dan menjalankannya, `esc`/`m` menutup | |
+| `b` | (More) | switch ke akun dengan sisa kuota terbanyak, ambang 90 | `cmd_switch_strategy("best", 90)` |
+| `u` | (More) | pindah hanya kalau akun active ≥ 90% | `cmd_auto()` |
+| `e` | (More) | modal path (default `~/agyswap-export.agyswap`, di home supaya tidak masuk repo tempat TUI dijalankan), path dikirim absolut, pesan sukses menyebut isinya refresh token | `cmd_export(path)` |
+| `i` | (More) | modal path, path dikirim absolut | `cmd_import(path)` |
+| `j`/`k`, arrow | — | pindah kursor dan gulir | |
+
+`b`/`u`/`e`/`i` juga jalan langsung tanpa membuka More. `add --slot`, `switch --force`, `--ignore-running`, `--threshold`, `--strategy next-available`, `import --force`, `export --force`, dan `--json` tetap khusus CLI.
+
+### Tampilan
+
+- `Loading accounts…` di tengah, daftar akun tersembunyi sampai muat pertama; setelah itu daftar tampil dan mendapat fokus. Muat pertama gagal: teks menjadi `Could not load accounts.` dan error di baris status.
+- Toast: `ToastRack { margin-bottom: 3 }`, di atas baris status.
+- Daftar akun: `scrollbar-size: 0 0`.
+- Sisa tampilan (tema, judul, warna) tidak berubah dari bagian "TUI" di atas.
+
+### Pesan CLI vs TUI
+
+- `SwapError(msg, tui=...)`: `str(e)` untuk CLI, `e.tui` untuk TUI (default sama dengan `msg`). Setiap pesan yang menyebut perintah atau flag CLI dan bisa muncul dari TUI wajib punya `tui=`: akun disabled (`Press x on it first.`), agy berjalan (tanpa catatan override), agy belum login (`then press a.`), belum ada akun (`Press a first.`), target tidak ditemukan (`Press r.`), store bukan JSON (`press r.`), file export sudah ada (`Choose another file.`).
+- Teks yang tampil di keduanya (error di kartu akun) tidak menyebut perintah mana pun: `token revoked, sign in with agy again and add the account`.
+- Pesan yang hanya bisa muncul dari CLI (`--slot`, `remove` tanpa `--yes`, parser) boleh menyebut flag.
+
+## Keamanan token
+
+- Tidak ada jalur baru yang menulis keyring. `b` dan `u` memakai `cmd_switch_strategy`/`cmd_auto` yang sudah ada, termasuk penolakan saat agy berjalan.
+- `e` menulis refresh token ke file lewat `cmd_export` yang sama (`0600`, tidak menimpa file yang ada). Judul modal menyebut "with refresh tokens" sebagai pengganti peringatan stderr CLI, yang tidak terlihat di TUI.
+- Semua aksi baru lewat `_run` (thread worker, target email, teks dari luar tanpa markup), jadi invariant "No exception may escape the TUI" tetap berlaku.
+
+## Testing Strategy
+
+pytest dengan Textual `run_test`, `collect_usage` dan `cmd_*` dipalsukan; tidak ada keyring atau jaringan sungguhan.
+
+- `test_tui_cursor_starts_on_active_and_stays_visible_on_its_email`: kursor di active saat muat, tetap di email yang sama setelah urutan berubah, dan tepat satu item tersorot.
+- `test_tui_alias_best_auto_export_import_reach_their_commands`: `n` (ganti, kosong, batal), `b`, `u`, `m`+`esc`, `m`+`b`, `e` dengan `~`, `i` batal dan isi.
+- `test_tui_shows_loading_in_the_middle_until_the_first_refresh`: teks loading tampil, daftar tersembunyi, lalu sebaliknya dan daftar mendapat fokus.
+- `test_errors_give_cli_and_tui_their_own_instructions`: `str(e)` dan `e.tui` untuk akun disabled dan agy berjalan.
+- Posisi toast, lebar footer, dan scrollbar dicek dengan pilot headless (dicatat di "Validasi" `architecture/OBSERVE.md`), tanpa test permanen.
+
+Manual check oleh user (TUI sungguhan): sorotan tetap terlihat setelah `r`; tampilan modal `m`, `n`, `e`; toast di atas baris status; toast `Press x on it first.` saat switch ke akun disabled.
+
+## Boundaries
+
+- Always: aksi TUI menargetkan email, berjalan di worker, dan menampilkan `e.tui`; pesan baru yang menyebut perintah CLI mendapat `tui=`.
+- Ask first: menambah tombol ke footer, mengubah warna/tema/judul, menambah override `--ignore-running` atau `--force` di TUI.
+- Never: menampilkan perintah atau flag CLI di TUI; menulis keyring di luar `switch_account`.
+
+## Success Criteria
+
+- [ ] Kursor tidak pernah tak terlihat; `d`/`s`/`x`/`n` mengenai baris yang tersorot.
+- [ ] `n`, `m`, `b`, `u`, `e`, `i` memanggil perintah yang sesuai; `esc` di setiap modal tidak menjalankan apa pun.
+- [ ] Footer berisi Switch, Add, Remove, Toggle, Alias, Refresh, Quit, More (89 kolom).
+- [ ] Tidak ada teks `agyswap <perintah>` atau `--flag` yang bisa tampil di TUI.
+- [ ] `uv run ruff check .` bersih dan `uv run pytest -q` lulus.
+
+## Open Questions
+
+Diputuskan user 2026-10-09 (saat `/agyswap-plan`):
+
+- Default nama file export di TUI menjadi `agyswap-export.agyswap`, mengikuti spec export-import.
+- Footer 89 kolom dibiarkan.
+- Scroll mouse dibiarkan aktif; scrollbar tetap tersembunyi.
+- Temuan review v0.2.0 (diputuskan saat persiapan rilis 0.3.0): folder store yang sudah ada dikencangkan ke `0700` dan ditolak kalau bukan milik user (`_private_dir`); `hatchling` di-pin `==1.32.4`; error 403 tetap `quota request failed (HTTP 403)` tanpa alasan dari body; `auto` saat tidak ada yang login tetap langsung switch ke akun terbaik.
+- Rincian import (`skipped …`, `alias … dropped`) tidak ditampilkan di TUI; ringkasan `Imported N, skipped M` cukup (default, tidak dijawab user).

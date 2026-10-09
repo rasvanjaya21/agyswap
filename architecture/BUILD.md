@@ -1,70 +1,47 @@
-# Build log: gelombang 2026-10-08 (v0.2.0)
+# Build log: gelombang 2026-10-09 (paritas CLI–TUI dan rapikan TUI)
 
-Ditulis lewat `/agyswap-build auto` pada 2026-10-08, mengikuti "Implementation Plan: gelombang 2026-10-08" di `architecture/PLAN.md`. Tidak di-commit per task: working tree sudah berisi perbaikan temuan review/ship yang belum di-commit di file yang sama, jadi semuanya di-commit lewat `/agyswap-commit` per kategori.
+Mengikuti "Implementation Plan: gelombang 2026-10-09" di `architecture/PLAN.md`. Task 1–3, 5, dan 6 dibangun bertahap lewat `/agyswap-observe` atas permintaan user sebelum spec dan plan ditulis; Task 4 lewat `/agyswap-build`. Belum di-commit; semuanya masuk lewat `/agyswap-commit` per kategori. Log gelombang v0.2.0 ada di git (`c5b6ce4`).
 
-## Task 1: Alias — selesai
+## Task 1: Kursor selalu terlihat — selesai
 
-- **Diimplementasikan:** `cmd_alias` (set/clear, tolak bentrok tanpa membedakan huruf besar, angka saja, dan `@` lewat `_valid_alias`); `find_slot` mencocokkan slot → email → alias; `account_text` menampilkan `email (alias)`; baris `collect_usage` membawa `alias`.
-- **Dibuktikan oleh:** `test_alias_set_clear_and_target`, `test_account_text_shows_alias` (merah dulu, lalu hijau).
+- **Diimplementasikan:** `_show` menjadi async, menunggu `lv.clear()` dan `lv.extend(...)` sebelum mengisi `lv.index`, lalu menaruh kursor di email yang sama atau di akun active. Akar masalahnya: index diisi saat item lama belum terhapus, jadi sorotan jatuh ke item yang sedang dihapus.
+- **Dibuktikan oleh:** `test_tui_cursor_starts_on_active_and_stays_visible_on_its_email` (merah dulu, lalu hijau).
 
-## Task 2: Disable/enable — selesai
+## Task 2: Instruksi CLI dan TUI terpisah — selesai
 
-- **Diimplementasikan:** `cmd_disable(target, reason="manual")`, `cmd_enable`; rotasi bare `switch` melewati akun disabled (`No enabled account to switch to.`); switch eksplisit ke akun disabled ditolak; `collect_usage` tidak mem-fetch akun disabled; `account_text` menampilkan `disabled: <alasan>` tanpa bar.
-- **Dibuktikan oleh:** `test_rotation_skips_disabled_accounts`, `test_usage_skips_disabled_accounts`.
+- **Diimplementasikan:** `SwapError(msg, tui=None)` dengan atribut `tui`; `tui=` di tujuh pesan yang menyebut perintah/flag CLI; `AGY_RUNNING` tanpa catatan override, CLI menambahkannya; TUI memakai `e.tui` di `_run` dan `action_refresh`; teks `TokenRevoked` netral.
+- **Dibuktikan oleh:** `test_errors_give_cli_and_tui_their_own_instructions`; test CLI lama (`No account matches 'nope'. Run \`agyswap list\`.`) tetap lulus.
 
-## Task 3: Tombol `x` — selesai
+## Task 3: `n`, `m` More, `b`/`u`/`e`/`i` — selesai
 
-- **Diimplementasikan:** `Binding("x", "toggle", "Disable/Enable")` dan `action_toggle` di `tui.py`, lewat `_run` (thread worker, target email).
-- **Dibuktikan oleh:** `test_tui_x_toggles_disable_by_email`. Test ini ditulis bersama kodenya, jadi dibuktikan dengan mutasi (target slot + selalu disable → test merah).
+- **Diimplementasikan:** modal `Prompt` (Input, `enter`/`esc`), modal `More` yang meneruskan tombolnya ke `action_*`, `_switch_best` dan `_auto` sebagai pembungkus pesan, binding `b`/`u`/`e`/`i` dengan `show=False`, `m` di akhir footer, label `Add` dan `Toggle`.
+- **Dibuktikan oleh:** `test_tui_alias_best_auto_export_import_reach_their_commands`; lebar footer 89 kolom dari pilot headless.
 
-## Task 4: Karantina — selesai
+## Task 4: Default nama file export — selesai
 
-- **Diimplementasikan:** `usage.TokenRevoked(UsageError)` untuk `invalid_grant`; merge `collect_usage` menandai `disabled_reason: token revoked` hanya kalau token di store sama dengan yang di-fetch. `cmd_add` sekarang **memperbarui** entri (dulu menimpa seluruhnya, sehingga alias dan tanda disable hilang setiap `add` ulang) dan menghapus tanda `token revoked`, tidak `manual`.
-- **Dibuktikan oleh:** `test_revoked_token_quarantines_account`, `test_quarantine_skips_token_replaced_during_fetch`, `test_add_clears_revoked_mark_but_keeps_alias_and_manual`.
+- **Diimplementasikan:** modal `e` terisi `agyswap-export.agyswap`.
+- **Dibuktikan oleh:** langkah `e` + `enter` di `test_tui_alias_best_auto_export_import_reach_their_commands` (merah dulu dengan `agyswap-export.json`, lalu hijau).
 
-## Task 5: Cache `usage.json` — selesai
+## Task 5: Loading, toast, scrollbar — selesai
 
-- **Diimplementasikan:** `_write_private` (dipakai `save_store` dan cache), `usage_path`, `load_usage` (cache rusak = kosong), `_update_usage_cache` di bawah lock (simpan pembacaan sukses, buang email yang tidak ada, isi baris gagal dengan cache + `stale` detik), `_ago`, penanda `(stale, <umur> ago)` di `account_text`.
-- **Dibuktikan oleh:** `test_usage_cache_fills_failed_fetch`, `test_corrupt_usage_cache_is_ignored`.
-- **Cek manual (agent):** store sementara dengan akun sungguhan, `list` lalu `HTTPS_PROXY=http://127.0.0.1:9 list` menampilkan angka terakhir dengan `(stale, 0m ago)`; `usage.json` mode 600; hash keyring tidak berubah.
+- **Diimplementasikan:** `Static#loading` di tengah dan `ListView { display: none }` sampai `_show` pertama, `lv.focus()` setelah tampil, `_fail` mengganti teks loading menjadi `Could not load accounts.`; `ToastRack { margin-bottom: 3 }`; `ListView { scrollbar-size: 0 0 }`.
+- **Dibuktikan oleh:** `test_tui_shows_loading_in_the_middle_until_the_first_refresh`; posisi toast dan scroll dari pilot headless (bagian "Validasi" di `architecture/OBSERVE.md`).
 
-## Task 6: Backoff 429 — selesai
+## Task 6: Dokumen — selesai
 
-- **Diimplementasikan:** `usage.RateLimited(UsageError)` dengan `retry_after` dari `Retry-After` (detik atau tanggal HTTP, default 300); `collect_usage` melewati fetch sampai `retry_at` di cache dan menampilkan `rate limited, retry in <m>`.
-- **Dibuktikan oleh:** `test_rate_limited_reads_retry_after`, `test_rate_limited_account_is_not_fetched_until_retry_at`.
+- **Diimplementasikan:** tabel tombol dan perilaku kursor di `README.md`; daftar tombol dan invariant instruksi CLI/TUI di `AGENTS.md`; entri "Validasi" di `architecture/OBSERVE.md`.
 
-## Task 7: `switch --strategy` — selesai
+## Temuan review v0.2.0 (persiapan rilis 0.3.0) — selesai
 
-- **Diimplementasikan:** `pick_account` murni (`best`: `max(used)` terendah, seri ke slot terkecil; `next-available`: urutan rotasi setelah akun aktif), `MAX_STALE = 30 menit`, `_readable`, `_max_used`; `switch_account` mengembalikan dict, `cmd_switch` dan `switch_message` membentuk teks (TUI tidak berubah); `cmd_switch_strategy`; `--threshold` lewat `_percent` (0–100); `<target>` + `--strategy` → exit 2.
-- **Dibuktikan oleh:** `test_pick_account_strategies`, `test_switch_strategy_switches_to_picked_account`, `test_switch_strategy_rejects_target`.
-- **Perubahan teks:** catatan login yang diselamatkan kini `Saved the unstored live login as account N.` (tanpa email).
+- **Diimplementasikan:** `_private_dir` di `cli.py`, dipakai `locked_store` dan `_write_private`: membuat folder `0700`, `chmod 0700` folder yang sudah ada kalau grup/lainnya punya akses, dan `SwapError` kalau pemiliknya bukan user. `pyproject.toml`: `hatchling==1.32.4` (versi yang dipilih `uv build`).
+- **Dibuktikan oleh:** `test_existing_store_dir_is_tightened_and_must_be_ours` (merah dulu, lalu hijau); `uv build` lulus dengan pin.
+- **Diputuskan user, tanpa perubahan kode:** error 403 tetap `quota request failed (HTTP 403)`; `auto` saat tidak ada yang login tetap switch ke akun terbaik.
 
-## Task 8: `auto` — selesai
+## Perbaikan review rilis 0.3.0 — selesai
 
-- **Diimplementasikan:** `cmd_auto` dan `auto_message`. Login live yang belum disimpan disimpan dulu lewat `cmd_add` (supaya kuotanya terbaca), lalu `collect_usage`, lalu no-op / switch / exit 1 sesuai spec.
-- **Dibuktikan oleh:** `test_auto_stays_below_threshold`, `test_auto_switches_when_active_is_over_threshold`, `test_auto_without_candidate_or_quota_stays`, `test_auto_refuses_while_agy_runs`, `test_auto_saves_unstored_live_login_first`.
-- **Ditunda ke user:** manual check dua akun sungguhan (akun ≥ 90%).
+- **Diimplementasikan:** `asyncio.Lock` di `_show`; export TUI ke `~/agyswap-export.agyswap` dengan path absolut dan pesan refresh token (`_export`, `_abspath`); `_printable` untuk email, `disabled_reason`, dan alias import, laporan alias `!r`; `enable-cache: false` di job build `publish.yml`.
+- **Dibuktikan oleh:** test di `architecture/REVIEW.md` ("Diperbaiki"), masing-masing merah dulu; mutasi 18/18 mati.
 
-## Task 9: `--json` — selesai
+## Ditunda
 
-- **Diimplementasikan:** `--json` di `list`, `status`, `switch`, `auto`; `row_json`, `_emit`; error sebagai `{"version": 1, "error": ...}` di stdout; `used` dibulatkan 6 desimal.
-- **Dibuktikan oleh:** `test_json_output_for_list_status_switch_auto` (juga memastikan tidak ada substring token).
-- **Cek manual (agent):** `list --json` dan `auto --json` dengan akun sungguhan dan store sementara; `auto` tidak switch (satu akun, di bawah threshold).
-
-## Task 10–11: `export` / `import` — selesai
-
-- **Diimplementasikan:** `cmd_export` (`O_CREAT|O_EXCL|O_NOFOLLOW` 0600, `--force` menghapus file lama dulu, token keyring untuk akun aktif, peringatan di stderr); `_read_export` memvalidasi seluruh file sebelum menulis; `cmd_import` (slot berikutnya, skip atau `--force` dengan slot tetap; alias yang bentrok atau tidak valid dibuang dengan pesan).
-- **Dibuktikan oleh:** `test_export_import_roundtrip`, `test_import_rejects_whole_file_on_bad_entry`, `test_import_drops_alias_taken_by_another_account`.
-
-## Task 12: Dokumen — selesai
-
-- `README.md` (Status, Configuration, Usage: alias, disable/enable, strategy, `auto`, `--json`, cache/backoff, karantina, export/import, `add --slot`, tombol `x`), `AGENTS.md` (Layout, tombol, Invariants), `TODO.md` (sisa: `run`, validasi kuota habis), centang `SPEC.md` dan `PLAN.md`.
-
-## Verifikasi akhir
-
-- `uv run ruff format --check .`, `uv run ruff check .`, `uv run pytest -q` (65 passed), `uv build` lolos; wheel hanya `agyswap/` dan `agyswap_cli-*.dist-info/`.
-
-## Menunggu user
-
-- Review checkpoint Task 7–9 (perilaku `auto`, bentuk JSON) dilewati oleh mode `auto`; ditinjau di `/agyswap-review`.
-- Manual check `auto` dengan dua akun sungguhan.
+- Rincian import (`skipped …`, `alias … dropped`) tidak tampil di TUI; hanya ringkasan (keputusan default, `architecture/SPEC.md`).

@@ -1,36 +1,32 @@
 # Commit
 
-Ditulis lewat `/agyswap-commit` pada 2026-10-08, setelah `/agyswap-prepare` kedua. Belum di-push; push dijalankan user.
+Ditulis lewat `/agyswap-commit` pada 2026-10-09, setelah `/agyswap-prepare` kedua dan sebelum `/agyswap-ship` (0.3.0). Tanpa trailer co-author atau atribusi, sesuai instruksi user. Belum di-push.
 
-## Commit yang dibuat
+## Commit
 
 | Hash | Pesan | File |
-| ---- | ----- | ---- |
-| `d87911b` | `feat(package): migrate license to pep 639, add changelog url and pin hatchling range` | `pyproject.toml` |
-| `4ea06ba` | `feat(workflow): pin actions to commit sha, restrict permissions and split publish into build, publish and release jobs` | `.github/workflows/ci.yml`, `publish.yml`, `skills.yml` |
-| `c686c90` | `feat(usage): add revoked and rate limited errors, clamp retry-after, refuse redirects and scan agy binary once` | `src/agyswap/usage.py` |
-| `7ec04fc` | `feat(cli): add alias, disable, enable, auto, quota strategy, json output, export, import and usage cache, harden store writes` | `src/agyswap/cli.py` |
-| `5c526b2` | `fix(tui): run actions in workers, target accounts by email and escape external text` | `src/agyswap/tui.py` (tanpa tombol `x`) |
-| `2f27235` | `feat(tui): add disable and enable toggle on x` | `src/agyswap/tui.py` |
-| `0784c9f` | `feat(test): add tests for review fixes, account flags, quota strategy, auto, json and export` | `tests/test_swap.py` |
-| `ef62a24` | `docs(project): add v0.2.0 usage, use absolute links for pypi and remove version badge` | `README.md`, `CONTRIBUTING.md` |
-| `94f08a1` | `feat(skill): update keyring writer rule and remove version badge step` | `skills/agyswap-{build,review,ship}/SKILL.md` |
-| `7afd229` | `docs(agents): add v0.2.0 commands and invariants, update todo` | `AGENTS.md`, `TODO.md` |
-| `a910b6a` | `chore(graph): generated code graph` | `graphify-out/GRAPH_REPORT.md`, `graph.html`, `graph.json` |
-| `281c2f1` | `docs(architecture): add v0.1.0 publish result to ship record` | `architecture/SHIP.md` |
-| (commit terakhir) | `docs(architecture): add observe, spec, plan, build, test, review, prepare and commit records for v0.2.0` | `architecture/{OBSERVE,SPEC,PLAN,BUILD,TEST,REVIEW,PREPARE,COMMIT}.md` |
+| --- | --- | --- |
+| `7adb2c2` | `feat(package): pin hatchling build backend to 1.32.4` | `pyproject.toml` |
+| `2184616` | `feat(workflow): disable uv cache in release build` | `.github/workflows/publish.yml` |
+| `46e0e7f` | `feat(cli): tighten existing store folder to 0700 and refuse one owned by another user` | `src/agyswap/cli.py` (bagian `_private_dir`) |
+| `16c84ea` | `feat(cli): add tui wording to errors that name cli commands or flags` | `src/agyswap/cli.py` (bagian `SwapError.tui`) |
+| `0f8f931` | `feat(cli): reject control characters in imported alias and disabled reason` | `src/agyswap/cli.py` (bagian `_printable`) |
+| `4ce57ef` | `feat(usage): remove cli command from revoked token message` | `src/agyswap/usage.py` |
+| `de30dd3` | `feat(tui): add alias, more menu with best, auto, export and import, keep cursor on its account and show loading state` | `src/agyswap/tui.py` |
+| `5f53fbd` | `feat(test): add tests for tui parity, cursor, error wording, store folder and import validation` | `tests/test_swap.py` |
+| `90a7800` | `docs(project): add new tui keys and export default, document release environment and tag ruleset` | `README.md`, `CONTRIBUTING.md` |
+| `f8d3ead` | `docs(agents): add tui keys, cli and tui wording invariant and textual pitfalls, update todo` | `AGENTS.md`, `TODO.md` |
+| `ad857aa` | `chore(graph): generated code graph` | `graphify-out/GRAPH_REPORT.md`, `graph.html`, `graph.json` |
+| (commit ini) | `docs(architecture): add observe, spec, plan, build, test, review, prepare and commit records for 0.3.0` | `architecture/{OBSERVE,SPEC,PLAN,BUILD,TEST,REVIEW,PREPARE,COMMIT}.md` |
 
 ## Alasan pengelompokan
 
-- **Urutan:** config dulu (`package`, `workflow`), lalu kode dari bawah ke atas mengikuti dependensinya (`usage` → `cli` → `tui`), lalu test, docs, skill, graph, dan catatan `architecture/`.
-- **`tui.py` dipecah per hunk:**
-  - `5c526b2` memperbaiki perilaku yang memang rusak di v0.1.0: aksi memakai slot dari baris lama, notifikasi tanpa escape, dan aksi yang memblokir thread UI. Karena itu type-nya `fix`.
-  - `2f27235` menambah tombol `x`.
-  - File di `5c526b2` sudah dicek valid (`ast.parse`) dan tidak memuat `toggle`.
-- **`cli.py` dan `usage.py` satu commit per modul.** Hardening dari review dan ship v0.1.0 (store atomik, lock `O_NOFOLLOW`, error keyring, exit code `list`, redirect, scan binary) bertaut di hunk yang sama dengan fitur v0.2.0. Misalnya `save_store` menjadi `_write_private`, dan pesan 429 menjadi `RateLimited`. Pemisahan per hunk tidak jelas, jadi keduanya masuk satu commit yang menyebut hardening di pesannya.
-- **`SHIP.md` terpisah:** isinya hasil publish v0.1.0 dari sesi sebelumnya, bukan catatan siklus v0.2.0.
-- **Test satu commit** setelah semua kode: satu file yang menguji semua modul.
+- Urutannya config (package, workflow), lalu kode per modul, lalu test, lalu docs dan artefak.
+- `src/agyswap/cli.py` berisi tiga niat yang terpisah jelas, jadi dibagi menjadi tiga commit: folder store `0700`, teks TUI untuk error, dan karakter kontrol pada import. Versi antara disusun dengan menerapkan ulang editan ke `HEAD` lalu di-stage sebagai blob. Versi ketiga identik dengan working tree, dan setiap versi antara lolos `ast.parse`.
+- `src/agyswap/tui.py` tetap satu commit. Kursor, tombol baru, tampilan, `e.tui`, lock `_show`, dan lokasi export saling terkait dalam fungsi yang sama (`_show`, `_run`, `action_*`), sehingga pemisahan per hunk tidak jelas.
+- `usage.py` dipisah dari `cli.py` karena modulnya berbeda, walaupun niatnya sama dengan teks error CLI/TUI.
+- Semua test masuk satu commit setelah kode, karena satu file test mencakup semua perubahan di atas.
 
 ## Tidak di-commit
 
-Tidak ada. `git status` bersih setelah commit terakhir. `dist/`, `.venv/`, dan cache serta backup `graphify-out/` di-gitignore.
+Tidak ada. Working tree bersih setelah commit ini. `dist/` dan cache `graphify-out/` (backup per tanggal, `cache/`, `manifest.json`) di-gitignore.

@@ -551,9 +551,14 @@ def switch_account(target: str | None = None, force: bool = False, ignore_runnin
         return {"switched": True, "slot": slot, "email": acc["email"], "saved_slot": saved}
 
 
+def _printable(text: str) -> bool:
+    """No control characters: text from a file must never reach the terminal as escape codes."""
+    return not any(ord(c) < 0x20 or ord(c) == 0x7F for c in text)
+
+
 def _valid_alias(name: object) -> bool:
     # Slots are digits and emails hold '@'; an alias must never shadow either.
-    return isinstance(name, str) and bool(name) and not name.isdigit() and "@" not in name
+    return isinstance(name, str) and bool(name) and not name.isdigit() and "@" not in name and _printable(name)
 
 
 def cmd_alias(target: str, name: str | None) -> str:
@@ -646,14 +651,15 @@ def _valid_entry(acc: object) -> bool:
     The id_token signature is not verified, so only import files you exported yourself."""
     if not isinstance(acc, dict) or not isinstance(email := acc.get("email"), str) or not email:
         return False
-    if any(ord(c) < 0x20 or ord(c) == 0x7F for c in email):
-        return False  # would reach the terminal as escape codes
+    if not _printable(email):
+        return False
     try:
         tok = json.loads(acc["token"])
         shape = isinstance(tok["token"]["refresh_token"], str) and isinstance(tok["id_token"], str)
     except (KeyError, TypeError, ValueError):
         return False
-    fields = isinstance(acc.get("disabled", False), bool) and isinstance(acc.get("disabled_reason", ""), str)
+    reason = acc.get("disabled_reason", "")
+    fields = isinstance(acc.get("disabled", False), bool) and isinstance(reason, str) and _printable(reason)
     return shape and fields and email_of(acc["token"]) == email
 
 
@@ -693,7 +699,7 @@ def cmd_import(path: str, force: bool = False) -> str:
                 (a.get("alias") or "").lower() == str(alias).lower() for s, a in store["accounts"].items() if s != slot
             )
             if alias is not None and (taken or not _valid_alias(alias)):
-                print(f"alias '{alias}' dropped for {acc['email']} (taken or invalid)")
+                print(f"alias {alias!r} dropped for {acc['email']} (taken or invalid)")
                 del acc["alias"]
             store["accounts"][slot] = acc
             added += 1

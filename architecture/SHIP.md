@@ -1,6 +1,17 @@
 # Ship
 
-Ditulis lewat `/agyswap-ship` pada 2026-10-09 untuk rilis **0.3.0**.
+Ditulis lewat `/agyswap-ship` pada 2026-10-09 untuk rilis **0.3.0**, lalu **0.3.1**.
+
+## 0.3.1 (patch)
+
+Tag `v0.3.0` sudah di-push di `e66a5b6` sebelum commit README Discussions (`cf118af`) masuk, sehingga README di 0.3.0 tidak memuat badge dan link Discussions. Tag `v0.3.0` dilindungi ruleset (tidak bisa dihapus atau dipindah), jadi perubahan itu dirilis sebagai **0.3.1**.
+
+| Commit sejak `v0.3.0` | Kategori |
+| --- | --- |
+| `cf118af docs(project): add discussions badge and link to readme` | patch |
+| `9b6b4cb docs(architecture): update commit record for discussions readme change` | patch |
+
+Tidak ada perubahan kode (`src/`, `tests/`, `pyproject.toml` selain versi, `uv.lock` selain versi, `.github/workflows/`) sejak review rilis, jadi review dan cek di bawah tetap berlaku. CI `e66a5b6` lolos; README hanya berubah dua baris.
 
 ## Keputusan: GO
 
@@ -63,10 +74,12 @@ Commit rilis (`chore: release v0.3.0`, berisi `pyproject.toml` dan `uv.lock`) di
 ```bash
 git push
 # tunggu CI hijau
-git tag v0.3.0
-git push origin v0.3.0
+git tag v0.3.1
+git push origin v0.3.1
 # setujui job publish di tab Actions (environment pypi)
 ```
+
+Run `Publish to PyPI` untuk `v0.3.0` (`e66a5b6`) masih menunggu persetujuan; keputusan approve atau reject ada di user.
 
 ## Hasil publish
 

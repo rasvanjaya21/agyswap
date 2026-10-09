@@ -152,7 +152,7 @@ def fresh_token(token: str) -> str:
             if b"invalid_client" in body:
                 continue  # the binary carries more than one client; try the next
             if b"invalid_grant" in body:
-                raise TokenRevoked("token revoked, sign in with agy again and `agyswap add`") from e
+                raise TokenRevoked("token revoked, sign in with agy again and add the account") from e
             raise UsageError(f"token refresh failed (HTTP {e.code})") from e
         except urllib.error.URLError as e:
             raise UsageError(f"network error: {e.reason}") from e

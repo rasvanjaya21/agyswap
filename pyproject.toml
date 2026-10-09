@@ -1,6 +1,6 @@
 [project]
 name = "agyswap-cli"
-version = "0.2.0"
+version = "0.3.0"
 description = "Switch between multiple Antigravity CLI accounts, with a quota dashboard for every account"
 readme = "README.md"
 requires-python = ">=3.12"

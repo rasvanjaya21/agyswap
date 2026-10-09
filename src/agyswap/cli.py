@@ -30,7 +30,11 @@ USERNAME = "antigravity"
 
 
 class SwapError(Exception):
-    pass
+    """`str()` is the CLI wording; `tui` is the same message with TUI keys instead of commands."""
+
+    def __init__(self, msg: str, tui: str | None = None) -> None:
+        super().__init__(msg)
+        self.tui = tui or msg
 
 
 def store_path() -> Path:
@@ -44,7 +48,10 @@ def load_store() -> dict:
     try:
         return json.loads(p.read_text())
     except ValueError:
-        raise SwapError(f"{p} is not valid JSON. Fix or move it, then run `agyswap add` again.") from None
+        raise SwapError(
+            f"{p} is not valid JSON. Fix or move it, then run `agyswap add` again.",
+            tui=f"{p} is not valid JSON. Fix or move it, then press r.",
+        ) from None
 
 
 @contextmanager
@@ -157,7 +164,9 @@ def find_slot(store: dict, target: str) -> str:
         for slot, acc in accounts.items():
             if (acc.get(key) or "").lower() == target.lower():
                 return slot
-    raise SwapError(f"No account matches '{target}'. Run `agyswap list`.")
+    raise SwapError(
+        f"No account matches '{target}'. Run `agyswap list`.", tui=f"No account matches '{target}'. Press r."
+    )
 
 
 def slot_for_email(store: dict, email: str | None) -> str | None:
@@ -174,7 +183,10 @@ def cmd_add(slot: int | None = None) -> str:
     token = read_token()
     email = email_of(token)
     if not email:
-        raise SwapError("agy is not signed in. Run `agy`, sign in, exit, then `agyswap add`.")
+        raise SwapError(
+            "agy is not signed in. Run `agy`, sign in, exit, then `agyswap add`.",
+            tui="agy is not signed in. Run `agy`, sign in, exit, then press a.",
+        )
     with locked_store() as store:
         existing = slot_for_email(store, email)
         if slot is None:
@@ -441,7 +453,7 @@ def pick_account(rows: list[dict], strategy: str, threshold: float) -> dict | No
 
 def cmd_switch_strategy(strategy: str, threshold: float, ignore_running: bool = False) -> dict:
     if agy_running() and not ignore_running:
-        raise SwapError(AGY_RUNNING)
+        raise SwapError(f"{AGY_RUNNING} (--ignore-running to override)", tui=AGY_RUNNING)
     # Quota is fetched unlocked; switch_account re-checks everything under the lock.
     row = pick_account(collect_usage(), strategy, threshold)
     if row is None:
@@ -460,7 +472,7 @@ def _max_used(r: dict) -> float:
 def cmd_auto(threshold: float = 90, strategy: str = "best", ignore_running: bool = False) -> dict:
     """Move off the active account once any of its buckets reaches `threshold` percent."""
     if agy_running() and not ignore_running:
-        raise SwapError(AGY_RUNNING)
+        raise SwapError(f"{AGY_RUNNING} (--ignore-running to override)", tui=AGY_RUNNING)
     saved = None
     live_email = email_of(read_token())
     if live_email and not slot_for_email(load_store(), live_email):
@@ -495,20 +507,17 @@ def auto_message(r: dict) -> str:
     return switch_message(r) + f" (max {r['max_used']:.0%} used)"
 
 
-AGY_RUNNING = (
-    "agy is running. Exit it first: a running agy refreshes and re-saves "
-    "its own token, undoing the switch. (--ignore-running to override)"
-)
+AGY_RUNNING = "agy is running. Exit it first: a running agy refreshes and re-saves its own token, undoing the switch."
 
 
 def switch_account(target: str | None = None, force: bool = False, ignore_running: bool = False) -> dict:
     """Switch the keyring login. `force` skips copying the live token back into its slot,
     an unstored live login is still saved first."""
     if agy_running() and not ignore_running:
-        raise SwapError(AGY_RUNNING)
+        raise SwapError(f"{AGY_RUNNING} (--ignore-running to override)", tui=AGY_RUNNING)
     with locked_store() as store:
         if not store["accounts"]:
-            raise SwapError("No accounts stored. Run `agyswap add` first.")
+            raise SwapError("No accounts stored. Run `agyswap add` first.", tui="No accounts stored. Press a first.")
         saved = None
         live = read_token()
         live_email = email_of(live)
@@ -532,10 +541,8 @@ def switch_account(target: str | None = None, force: bool = False, ignore_runnin
         slot = find_slot(store, target)
         acc = store["accounts"][slot]
         if acc.get("disabled") and slot != current:
-            raise SwapError(
-                f"Account {slot} is disabled ({acc.get('disabled_reason', 'manual')}). "
-                f"Run `agyswap enable {slot}` first."
-            )
+            disabled = f"Account {slot} is disabled ({acc.get('disabled_reason', 'manual')})."
+            raise SwapError(f"{disabled} Run `agyswap enable {slot}` first.", tui=f"{disabled} Press x on it first.")
         if slot == current:
             save_store(store)
             return {"switched": False, "slot": slot, "email": acc["email"], "saved_slot": saved}
@@ -604,7 +611,9 @@ def cmd_export(path: str, force: bool = False) -> str:
     data = json.dumps({"format": EXPORT_FORMAT, "version": 1, "accounts": accounts}, indent=2)
     target = Path(path)
     if not force and (target.exists() or target.is_symlink()):
-        raise SwapError(f"{path} already exists. Pass --force to replace it.")
+        raise SwapError(
+            f"{path} already exists. Pass --force to replace it.", tui=f"{path} already exists. Choose another file."
+        )
     tmp = None
     try:
         # Complete 0600 file first, then put it in place: the old export survives a failed write,
@@ -619,7 +628,9 @@ def cmd_export(path: str, force: bool = False) -> str:
         else:
             os.link(tmp, target)
     except FileExistsError:
-        raise SwapError(f"{path} already exists. Pass --force to replace it.") from None
+        raise SwapError(
+            f"{path} already exists. Pass --force to replace it.", tui=f"{path} already exists. Choose another file."
+        ) from None
     except OSError as e:
         raise SwapError(f"Cannot write {path}: {type(e).__name__}") from None
     finally:

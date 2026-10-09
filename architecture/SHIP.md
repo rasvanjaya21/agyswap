@@ -79,8 +79,18 @@ git push origin v0.3.1
 # setujui job publish di tab Actions (environment pypi)
 ```
 
-Run `Publish to PyPI` untuk `v0.3.0` (`e66a5b6`) masih menunggu persetujuan; keputusan approve atau reject ada di user.
+Run `Publish to PyPI` untuk `v0.3.0` (`e66a5b6`) disetujui user apa adanya (README lama). README Discussions ikut di 0.3.1.
 
 ## Hasil publish
 
-Belum. Diisi setelah tag di-push dan job `publish` disetujui.
+Keduanya terbit pada 2026-10-09 setelah disetujui user di environment `pypi`:
+
+| Versi | Tag | Workflow `Publish to PyPI` | GitHub release | PyPI |
+| --- | --- | --- | --- | --- |
+| 0.3.0 | `v0.3.0` → `e66a5b6` | `completed success` | `v0.3.0`, 2026-10-09T11:53:33Z | wheel dan sdist; deskripsi tanpa Discussions |
+| 0.3.1 | `v0.3.1` → `8c27060` | `completed success` | `v0.3.1` (Latest), 2026-10-09T11:56:17Z | wheel dan sdist; deskripsi dengan Discussions |
+
+Verifikasi:
+
+- Simple index PyPI (`Cache-Control: no-cache`) memuat `0.1.0, 0.2.0, 0.3.0, 0.3.1`. Endpoint JSON tanpa versi masih menampilkan `0.2.0` sebagai latest karena cache CDN.
+- `uvx --from agyswap-cli==0.3.1 agyswap --version` dengan `AGYSWAP_HOME` sementara menghasilkan `0.3.1`.

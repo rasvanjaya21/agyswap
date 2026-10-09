@@ -51,7 +51,7 @@ def load_store() -> dict:
 def locked_store():
     """Load the store under an exclusive lock; hold it for the whole read-modify-write."""
     lock = store_path().with_name(".lock")
-    lock.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    _private_dir(lock.parent)
     fd = os.open(lock, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
     try:
         fcntl.flock(fd, fcntl.LOCK_EX)
@@ -77,8 +77,18 @@ def load_usage() -> dict:
     return data if isinstance(data, dict) else {}
 
 
+def _private_dir(d: Path) -> None:
+    """Create the store folder 0700; tighten an existing one, and refuse one owned by someone else."""
+    d.mkdir(mode=0o700, parents=True, exist_ok=True)
+    st = d.stat()
+    if st.st_uid != os.getuid():
+        raise SwapError(f"{d} is not owned by you; refusing to keep refresh tokens there.")
+    if st.st_mode & 0o077:
+        d.chmod(0o700)
+
+
 def _write_private(p: Path, data: dict) -> None:
-    p.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    _private_dir(p.parent)
     # Refresh tokens live in the store: mkstemp creates an unguessable 0600 file with O_EXCL.
     fd, tmp = tempfile.mkstemp(dir=p.parent, prefix=f".{p.stem}-", suffix=".tmp")
     try:

@@ -21,6 +21,7 @@ jobs:
         uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e  # v6
         with:
           python-version: '3.12'
+          enable-cache: false  # a cache written by branch pushes must never feed a release build
 
       - name: Check tag matches pyproject version
         run: |

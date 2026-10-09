@@ -10,6 +10,7 @@
     <a href="#"><img src="https://img.shields.io/badge/author-rasvanjaya21-white" alt="author-name"></a>
     <a href="https://pypi.org/project/agyswap-cli/"><img src="https://img.shields.io/pypi/v/agyswap-cli?label=pip" alt="pypi-version"></a>
     <a href="https://github.com/rasvanjaya21/agyswap/actions/workflows/ci.yml"><img src="https://github.com/rasvanjaya21/agyswap/actions/workflows/ci.yml/badge.svg" alt="build-status"></a>
+    <a href="https://github.com/rasvanjaya21/agyswap/discussions"><img src="https://img.shields.io/github/discussions/rasvanjaya21/agyswap?label=discussions" alt="discussions"></a>
 </p>
 
 ## Description
@@ -24,7 +25,7 @@ Inspired by [claude-swap](https://github.com/realiti4/claude-swap).
 
 **Usable on Linux.** Adding accounts, switching between them (by hand, by quota, or with `auto` when the active account runs low), aliases, enable/disable, export/import, JSON output, the quota list, and the interactive dashboard all work. Switching between two real accounts without signing in again has been verified.
 
-Not built yet: parallel sessions with different accounts, and macOS/Windows keyrings. [`TODO.md`](https://github.com/rasvanjaya21/agyswap/blob/master/TODO.md) lists every open item.
+Not built yet: parallel sessions with different accounts, and macOS/Windows keyrings. [`TODO.md`](https://github.com/rasvanjaya21/agyswap/blob/master/TODO.md) lists every open item. Questions, ideas, and feedback are welcome in [Discussions](https://github.com/rasvanjaya21/agyswap/discussions).
 
 ## Techstacks
 

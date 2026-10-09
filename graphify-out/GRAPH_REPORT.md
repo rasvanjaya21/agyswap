@@ -1,79 +1,84 @@
-# Graph Report - agyswap  (2026-10-08)
+# Graph Report - agyswap  (2026-10-09)
 
 ## Corpus Check
 - cluster-only mode — file stats not available
 
 ## Summary
-- 915 nodes · 1593 edges · 49 communities (46 shown, 3 thin omitted)
-- Extraction: 79% EXTRACTED · 21% INFERRED · 0% AMBIGUOUS · INFERRED: 328 edges (avg confidence: 0.94)
-- Token cost: 3,353 input · 579 output
+- 970 nodes · 1679 edges · 54 communities (50 shown, 4 thin omitted)
+- Extraction: 80% EXTRACTED · 20% INFERRED · 0% AMBIGUOUS · INFERRED: 328 edges (avg confidence: 0.94)
+- Token cost: 3,865 input · 639 output
 
 ## Graph Freshness
-- Built from commit: `01c5bfed`
+- Built from commit: `c5b6ce45`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
 - CLI Argument Parsing
-- Incremental Build Rules
-- AI and Application Security
+- Incremental Implementation Standards
+- Security and Data Protection
 - Accessibility and ARIA Standards
-- Documentation and Path Utilities
-- TUI and App Components
-- Planning and Integration Rules
+- Release and Rollback Procedures
+- Manual TUI Testing
+- Planning and Definition of Done
 - Commit Message Conventions
 - Code Review Best Practices
-- Testing Standards and Guides
+- Testing Strategy and Rationales
 - Web Development Checklists
-- Backend and Frontend Performance
-- Quality and Monitoring Strategy
-- Security and Input Validation
-- Token and Store Management
-- Release and Shipping Process
-- Commit and Push Guidelines
-- Usage and Quota Monitoring
-- Specification Lifecycle Management
+- Backend and Frontend Standards
+- Post-Launch Quality Gates
+- LLM and Auth Security
+- Token Store Operations
+- Usage Cache and Quotas
+- Commit History Tracking
+- Token and Quota Observation
+- Specification Lifecycle Method
 - Environment Preparation Skills
 - Observation and Validation Skills
-- Dependencies and Tooling
-- CLI Tooling
-- Project README and Architecture
-- Module Specifications and Security
-- Build Logs and Aliasing
-- Agent Workflow and Contributing
-- Release Review and Bugfixes
-- Error Handling and Retries
-- CLI Auto-Switch Logic
-- Account Quarantine and Validation
-- Implementation Roadmap
-- Switch Strategy Implementation
-- System Specifications and Boundaries
-- Release Review and Invariants
-- Export and Exception Handling
-- Import and Export Commands
-- System Preparation Checklist
-- TUI Error Resilience Testing
-- Usage Cache Management
-- Definition of Done Checklist
-- JSON Output and Status
+- Tooling and Dependencies
+- CLI Entry Point
+- Project Architecture and Setup
+- Module Specifications and Boundaries
+- TUI Input and Actions
+- Agent Workflow and Safety
+- Account Management Unit Tests
+- Error Handling and TUI
+- Account State Integration Tests
+- Token Refresh Logic Tests
+- Implementation Phase Planning
+- CLI and TUI Parity
+- Capability Map and Specs
+- Account Command Logic
+- Error Types and Style
+- Store Persistence and Export
+- Project Maintenance Checklist
+- TUI Dashboard Implementation
+- Private Directory Management
+- Quality and Readiness Checklist
+- Release Review and Verification
 - Shipping and Versioning Skills
 - Review Methodology Skills
 - Five-Axis Review Criteria
-- Step-by-Step Review Process
-- Accessibility Navigation Checks
-- Manual Testing Procedures
+- Review Process Steps
+- Accessibility Content Checks
+- Store Integrity and Security
+- TUI Export and Security
+- Import Validation and Security
+- CLI Interactive Tests
+- TUI Confirmation Dialogs
+- Build Logs and Tasks
 
 ## God Nodes (most connected - your core abstractions)
-1. `setup()` - 62 edges
+1. `setup()` - 63 edges
 2. `make_token()` - 37 edges
-3. `collect_usage()` - 32 edges
+3. `_add()` - 32 edges
 4. `Gelombang v0.2.0` - 32 edges
-5. `_add()` - 31 edges
-6. `switch_account()` - 24 edges
-7. `locked_store()` - 23 edges
-8. `SwapError` - 22 edges
-9. `main()` - 20 edges
-10. `Review rilis v0.2.0` - 20 edges
+5. `SwapError` - 28 edges
+6. `AgySwapApp` - 25 edges
+7. `locked_store()` - 24 edges
+8. `switch_account()` - 24 edges
+9. `collect_usage()` - 23 edges
+10. `cmd_auto()` - 22 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `Kuota` --references--> `Pool`  [INFERRED]
@@ -84,23 +89,23 @@
   architecture/SPEC.md → src/agyswap/usage.py
 - `How agy stores auth (verified on agy 1.3.1, Linux)` --references--> `fetch_pools()`  [INFERRED]
   AGENTS.md → src/agyswap/usage.py
-- `3. Yang usang` --references--> `_post()`  [INFERRED]
-  architecture/PREPARE.md → src/agyswap/usage.py
+- `Kuota` --references--> `_post()`  [INFERRED]
+  architecture/OBSERVE.md → src/agyswap/usage.py
 
 ## Import Cycles
 - None detected.
 
-## Communities (49 total, 3 thin omitted)
+## Communities (54 total, 4 thin omitted)
 
 ### Community 0 - "CLI Argument Parsing"
-Cohesion: 0.15
-Nodes (3): build_parser(), _countdown(), _percent()
+Cohesion: 0.11
+Nodes (10): Testing Strategy, account_text(), _ago(), build_parser(), one(), _color(), _countdown(), _percent() (+2 more)
 
-### Community 1 - "Incremental Build Rules"
+### Community 1 - "Incremental Implementation Standards"
 Cohesion: 0.05
 Nodes (37): /agyswap-build, Common Rationalizations, Contract-First Slicing, Correctness, Definition of Done, Definition of Done vs. Acceptance Criteria, Documentation, How to Apply (+29 more)
 
-### Community 2 - "AI and Application Security"
+### Community 2 - "Security and Data Protection"
 Cohesion: 0.12
 Nodes (17): AI / LLM Security, Authentication, Authorization, CORS Configuration, Data Protection, Dependency Security, Destructive Path Operations, Error Handling (+9 more)
 
@@ -108,15 +113,15 @@ Nodes (17): AI / LLM Security, Authentication, Authorization, CORS Configuration
 Cohesion: 0.20
 Nodes (10): Accessibility Checklist, Accessible Lists, ARIA Roles, Buttons vs. Links, Common Anti-Patterns, Common HTML Patterns, Form Labels, Quick Reference: ARIA Live Regions (+2 more)
 
-### Community 4 - "Documentation and Path Utilities"
-Cohesion: 0.09
-Nodes (15): checkout(), md_page(), rst_pages(), rst_title(), run(), textual_pages(), expand(), toctree() (+7 more)
+### Community 4 - "Release and Rollback Procedures"
+Cohesion: 0.06
+Nodes (24): Cara rilis (setelah GO), Cek, Hasil publish, Keputusan: GO, Rencana rollback, Risiko yang diterima, Ship, Uji manual oleh user (+16 more)
 
-### Community 5 - "TUI and App Components"
-Cohesion: 0.07
-Nodes (5): Task 3: Tombol `x` — selesai, AgySwapApp, done(), Confirm, test_tui_x_toggles_disable_by_email()
+### Community 5 - "Manual TUI Testing"
+Cohesion: 0.15
+Nodes (5): Cek manual, Jalur yang belum dites otomatis, Test, AgySwapApp, done()
 
-### Community 6 - "Planning and Integration Rules"
+### Community 6 - "Planning and Definition of Done"
 Cohesion: 0.06
 Nodes (31): /agyswap-plan, Common Rationalizations, Correctness, Definition of Done, Definition of Done vs. Acceptance Criteria, Documentation, How to Apply, Integration (+23 more)
 
@@ -128,7 +133,7 @@ Nodes (28): Ad-hoc types (one-offs, not to be reproduced), /agyswap-commit, Atur
 Cohesion: 0.12
 Nodes (17): Change Descriptions, Change Sizing, Code Review and Quality, Common Rationalizations, Dead Code Hygiene, Dependency Discipline, Handling Disagreements, Honesty in Review (+9 more)
 
-### Community 9 - "Testing Standards and Guides"
+### Community 9 - "Testing Strategy and Rationales"
 Cohesion: 0.04
 Nodes (45): /agyswap-test, API / Integration Testing, Browser Testing with DevTools, Common Assertions, Common Rationalizations, DAMP Over DRY in Tests, Decision Guide, Discover the Stack First (+37 more)
 
@@ -136,35 +141,35 @@ Nodes (45): /agyswap-test, API / Integration Testing, Browser Testing with DevTo
 Cohesion: 0.08
 Nodes (26): API, Backend Checklist, Cache checklist, Caching Strategies, Common Anti-Patterns, Connection pooling, Core Web Vitals Targets, CSS (+18 more)
 
-### Community 11 - "Backend and Frontend Performance"
+### Community 11 - "Backend and Frontend Standards"
 Cohesion: 0.08
 Nodes (26): API, Backend Checklist, Cache checklist, Caching Strategies, Common Anti-Patterns, Connection pooling, Core Web Vitals Targets, CSS (+18 more)
 
-### Community 12 - "Quality and Monitoring Strategy"
+### Community 12 - "Post-Launch Quality Gates"
 Cohesion: 0.08
 Nodes (25): Accessibility, Code Quality, Common Rationalizations, Documentation, Error Budget Release Gate, Error Reporting, Feature Flag Strategy, Infrastructure (+17 more)
 
-### Community 13 - "Security and Input Validation"
+### Community 13 - "LLM and Auth Security"
 Cohesion: 0.12
 Nodes (17): AI / LLM Security, Authentication, Authorization, CORS Configuration, Data Protection, Dependency Security, Destructive Path Operations, Error Handling (+9 more)
 
-### Community 14 - "Token and Store Management"
-Cohesion: 0.20
-Nodes (22): Store, switch, remove, make_token(), refresh_of(), setup(), test_add_slot_never_overwrites_other_account(), test_add_slot_zero_is_rejected(), test_auto_saves_unstored_live_login_first(), test_export_import_roundtrip() (+14 more)
+### Community 14 - "Token Store Operations"
+Cohesion: 0.16
+Nodes (26): Store, switch, remove, _export_file(), make_token(), refresh_of(), setup(), test_add_slot_never_overwrites_other_account(), test_add_slot_zero_is_rejected(), test_auto_saves_unstored_live_login_first() (+18 more)
 
-### Community 15 - "Release and Shipping Process"
-Cohesion: 0.18
-Nodes (10): Cara rilis (dijalankan user), Cek sebelum GO, Hasil publish, Keputusan: **GO**, Rencana rollback, Risiko yang diterima, Riwayat, Ship: v0.1.0 (rilis pertama) (+2 more)
+### Community 15 - "Usage Cache and Quotas"
+Cohesion: 0.17
+Nodes (16): Invariants, Alasan pengelompokan, Perilaku, collect_usage(), _expiry(), load_usage(), _update_usage_cache(), account_usage() (+8 more)
 
-### Community 16 - "Commit and Push Guidelines"
-Cohesion: 0.40
-Nodes (4): Alasan pengelompokan, Commit, Push, Tidak di-commit
+### Community 16 - "Commit History Tracking"
+Cohesion: 0.50
+Nodes (3): Commit, Commit yang dibuat, Tidak di-commit
 
-### Community 17 - "Usage and Quota Monitoring"
-Cohesion: 0.05
-Nodes (46): Belum terobservasi, Data dir dan isolasi sesi, Host dan rate limit, Kuota, Kuota per window (`retrieveUserQuotaSummary`), Login dan logout, Observasi agy, Penyimpanan login (+38 more)
+### Community 17 - "Token and Quota Observation"
+Cohesion: 0.07
+Nodes (15): Belum terobservasi, Data dir dan isolasi sesi, Host dan rate limit, Kuota, Kuota per window (`retrieveUserQuotaSummary`), Login dan logout, Observasi agy, Perubahan 1.3.0 → 1.3.1 (+7 more)
 
-### Community 18 - "Specification Lifecycle Management"
+### Community 18 - "Specification Lifecycle Method"
 Cohesion: 0.12
 Nodes (15): /agyswap-spec, Common Rationalizations, Keeping the Spec Alive, Method, Overview, Phase 0: Scope Check, Phase 1: Specify, Phase 2: Plan (+7 more)
 
@@ -176,85 +181,81 @@ Nodes (11): 10. Ringkasan, 1. TODO.md, 2. Selaraskan memory Claude dan Antigravi
 Cohesion: 0.18
 Nodes (10): A1. Catat lingkungan, A2. Yang wajib diobservasi, A3. Tulis peta, A. Observasi, /agyswap-observe, B. Validasi: jalankan, pantau, fix, Batas yang tidak boleh dilanggar, Format `architecture/OBSERVE.md` (+2 more)
 
-### Community 21 - "Dependencies and Tooling"
+### Community 21 - "Tooling and Dependencies"
 Cohesion: 0.60
 Nodes (4): bunx, pytest, rich, textual
 
-### Community 24 - "Project README and Architecture"
+### Community 24 - "Project Architecture and Setup"
 Cohesion: 0.15
 Nodes (12): Architecture, Configuration, Credit, Deployment, Description, Development, Installation, Member (+4 more)
 
-### Community 25 - "Module Specifications and Security"
+### Community 25 - "Module Specifications and Boundaries"
 Cohesion: 0.04
-Nodes (46): Bentuk store, Boundaries (gelombang ini), Dampak gabungan ke CLI dan TUI, Gelombang 2026-10-08: modul tersisa, Keamanan token, Keamanan token, Keamanan token, Keamanan token (+38 more)
+Nodes (49): Bentuk store, Boundaries (gelombang ini), Dampak gabungan ke CLI dan TUI, Gelombang 2026-10-08: modul tersisa, Keamanan token, Keamanan token, Keamanan token, Keamanan token (+41 more)
 
-### Community 26 - "Build Logs and Aliasing"
+### Community 26 - "TUI Input and Actions"
 Cohesion: 0.17
-Nodes (14): Build log: gelombang 2026-10-08 (v0.2.0), Menunggu user, Task 12: Dokumen — selesai, Task 1: Alias — selesai, Task 2: Disable/enable — selesai, Verifikasi akhir, Architecture Decisions, Task 1 (selesai): Alias dan target lewat alias (+6 more)
+Nodes (5): Task 3: `n`, `m` More, `b`/`u`/`e`/`i` — selesai, Architecture Decisions, _auto(), More, Prompt
 
-### Community 27 - "Agent Workflow and Contributing"
-Cohesion: 0.09
-Nodes (19): Agent workflow, Dev, How agy stores auth (verified on agy 1.3.1, Linux), Layout, Open work, Safety rules for agents, What this is, Agent Tooling (+11 more)
-
-### Community 28 - "Release Review and Bugfixes"
-Cohesion: 0.12
-Nodes (31): Celah test dari test-engineer (ditutup), Medium / Suggestion dari security dan code review (diperbaiki), Review rilis v0.2.0, _add(), _export_file(), _fail(), _pools(), test_add_slot_move_keeps_alias_and_disable() (+23 more)
-
-### Community 29 - "Error Handling and Retries"
-Cohesion: 0.08
-Nodes (17): Task 6: Backoff 429 — selesai, Perbaikan temuan review dan ship (2026-10-08), test_corrupt_store_is_a_swap_error(), test_fetch_pools_maps_http_errors(), boom(), test_invalid_grant_says_token_revoked(), test_keyring_read_failure_is_not_signed_out(), test_list_exits_1_when_every_account_fails() (+9 more)
-
-### Community 30 - "CLI Auto-Switch Logic"
-Cohesion: 0.15
-Nodes (23): Task 8: `auto` — selesai, CLI, _auto_setup(), fake(), _row(), test_auto_leaves_a_disabled_active_account(), test_auto_refuses_while_agy_runs(), test_auto_stays_below_threshold() (+15 more)
-
-### Community 31 - "Account Quarantine and Validation"
+### Community 27 - "Agent Workflow and Safety"
 Cohesion: 0.10
-Nodes (18): Task 4: Karantina — selesai, Gelombang v0.2.0, _expiring(), _revoked_post(), test_account_text_shows_alias(), test_add_clears_revoked_mark_but_keeps_alias_and_manual(), test_alias_set_clear_and_target(), test_fresh_token_fails_when_no_client_is_accepted() (+10 more)
+Nodes (17): Agent workflow, Dev, How agy stores auth (verified on agy 1.3.1, Linux), Layout, Open work, Safety rules for agents, What this is, Agent Tooling (+9 more)
 
-### Community 32 - "Implementation Roadmap"
-Cohesion: 0.11
-Nodes (17): Checkpoint: Selesai, Checkpoint: Setelah Task 1–3, Checkpoint: Setelah Task 7–9, Dependency Graph, Implementation Plan: gelombang 2026-10-08 (v0.2.0), Open Questions, Overview, Phase 1: account-flags (+9 more)
+### Community 28 - "Account Management Unit Tests"
+Cohesion: 0.10
+Nodes (28): Review rilis v0.2.0, _add(), fake(), _fail(), _pools(), test_add_slot_move_keeps_alias_and_disable(), test_agy_running_ignores_only_the_bg_updater(), test_alias_can_change_case_on_same_account() (+20 more)
 
-### Community 33 - "Switch Strategy Implementation"
-Cohesion: 0.21
-Nodes (15): Task 7: `switch --strategy` — selesai, Risks and Mitigations, Task 7 (selesai): `switch --strategy` dan `--threshold`, Task 8 (selesai): `agyswap auto`, Important (diperbaiki), agy_running(), auto_message(), cmd_auto() (+7 more)
+### Community 29 - "Error Handling and TUI"
+Cohesion: 0.10
+Nodes (14): Jalur error dan TUI (dari ship dan review rilis v0.1.0), _run_tui(), test_dropped_connection_becomes_a_row_error(), test_fetch_pools_maps_http_errors(), boom(), test_invalid_grant_says_token_revoked(), test_post_keeps_http_errors_for_callers(), test_quota_429_is_named() (+6 more)
 
-### Community 34 - "System Specifications and Boundaries"
+### Community 30 - "Account State Integration Tests"
 Cohesion: 0.12
-Nodes (16): Boundaries, Capability Map: semua butir `TODO.md` yang bisa dikerjakan, Code Style, Commands, Distribusi dan dokumentasi, Kuota, Objective, Open Questions (+8 more)
+Nodes (27): Gelombang v0.2.0, _auto_setup(), _revoked_post(), _row(), test_account_text_shows_alias(), test_add_clears_revoked_mark_but_keeps_alias_and_manual(), test_alias_set_clear_and_target(), test_auto_leaves_a_disabled_active_account() (+19 more)
 
-### Community 35 - "Release Review and Invariants"
-Cohesion: 0.20
-Nodes (13): Invariants, Critical, Pengecekan yang bersih, Review rilis v0.2.0, Tidak diperbaiki (masuk `TODO.md`), Untuk rilis, Aturan agyswap yang mengalahkan saran generik, Yang wajib dicek, yang terlewat oleh review generik (+5 more)
-
-### Community 36 - "Export and Exception Handling"
-Cohesion: 0.26
-Nodes (9): 5. Docs, Testing Strategy, cmd_export(), confirm_remove(), load_store(), read_token(), _secret_tool(), SwapError (+1 more)
-
-### Community 37 - "Import and Export Commands"
-Cohesion: 0.21
-Nodes (9): Task 10–11: `export` / `import` — selesai, cmd_add(), cmd_import(), email_of(), next_slot(), _read_export(), slot_for_email(), _valid_entry() (+1 more)
-
-### Community 38 - "System Preparation Checklist"
+### Community 31 - "Token Refresh Logic Tests"
 Cohesion: 0.17
-Nodes (11): 1. TODO.md, 2. Memory Claude dan Antigravity, 3. Yang usang, 4. Sisa debug, 6. Skills, 7. Pengetahuan, 8. Formatter, linter, test, build, 9. Graphify (+3 more)
+Nodes (10): Apa yang dibuktikan setiap test, Kuota dan render, _expiring(), test_account_text_full_bucket_row_has_no_trailing_space(), test_account_text_groups_5h_and_weekly(), test_account_text_widens_group_column_for_long_names(), test_fetch_pools_reads_5h_and_weekly_windows(), fake_post() (+2 more)
 
-### Community 39 - "TUI Error Resilience Testing"
-Cohesion: 0.20
-Nodes (8): Apa yang dibuktikan setiap test, Jalur error dan TUI (dari ship dan review rilis v0.1.0), _run_tui(), test_dropped_connection_becomes_a_row_error(), test_secret_tool_timeout_is_a_swap_error(), test_tui_shows_refresh_error_instead_of_exiting(), test_tui_survives_refresh_on_empty_store(), test_tui_unexpected_refresh_error_shows_only_its_type()
+### Community 32 - "Implementation Phase Planning"
+Cohesion: 0.11
+Nodes (17): Checkpoint: Selesai, Checkpoint: Setelah Task 1–2, Checkpoint: Setelah Task 3–4, Implementation Plan: gelombang 2026-10-09 (paritas CLI–TUI dan rapikan TUI), Open Questions, Overview, Phase 1: Kursor dan pesan, Phase 2: Fitur CLI di TUI (+9 more)
 
-### Community 40 - "Usage Cache Management"
-Cohesion: 0.29
-Nodes (8): Task 5: Cache `usage.json` — selesai, _ago(), load_usage(), _pool_json(), store_path(), _update_usage_cache(), usage_path(), _write_private()
+### Community 33 - "CLI and TUI Parity"
+Cohesion: 0.12
+Nodes (22): Task 2: Instruksi CLI dan TUI terpisah — selesai, Validasi, Celah test (dari `test-engineer`, mutasi yang hidup), Keamanan token, Testing Strategy, Gelombang 2026-10-09 (paritas CLI–TUI, persiapan 0.3.0), cmd_auto(), cmd_switch_strategy() (+14 more)
 
-### Community 41 - "Definition of Done Checklist"
+### Community 34 - "Capability Map and Specs"
+Cohesion: 0.08
+Nodes (23): Boundaries, Capability Map: semua butir `TODO.md` yang bisa dikerjakan, Commands, Distribusi dan dokumentasi, Gelombang 2026-10-09: paritas CLI–TUI dan rapikan TUI, Kuota, Kursor, Objective (+15 more)
+
+### Community 35 - "Account Command Logic"
+Cohesion: 0.21
+Nodes (19): 6. Skills, Boundaries, Tombol, Aturan agyswap yang mengalahkan saran generik, Yang wajib dicek, yang terlewat oleh review generik, auto_message(), cmd_add(), cmd_alias() (+11 more)
+
+### Community 36 - "Error Types and Style"
+Cohesion: 0.24
+Nodes (8): Code Style, Testing Strategy, Test di agyswap, agy_running(), read_token(), _secret_tool(), SwapError, write_token()
+
+### Community 37 - "Store Persistence and Export"
+Cohesion: 0.18
+Nodes (11): Penyimpanan login, cmd_export(), cmd_list(), cmd_status(), confirm_remove(), email_of(), _emit(), load_store() (+3 more)
+
+### Community 38 - "Project Maintenance Checklist"
+Cohesion: 0.18
+Nodes (10): 1. TODO.md, 2. Memory Claude dan Antigravity, 3. Yang usang, 4. Sisa debug, 5. Docs, 7. Pengetahuan, 8. Formatter, linter, test, build, 9. Graphify (+2 more)
+
+### Community 40 - "Private Directory Management"
+Cohesion: 0.36
+Nodes (6): Temuan review v0.2.0 (persiapan rilis 0.3.0) — selesai, Tidak diperbaiki (masuk `TODO.md`), _private_dir(), store_path(), usage_path(), _write_private()
+
+### Community 41 - "Quality and Readiness Checklist"
 Cohesion: 0.20
 Nodes (10): Correctness, Definition of Done, Definition of Done vs. Acceptance Criteria, Documentation, How to Apply, Integration, Quality, Red Flags (+2 more)
 
-### Community 42 - "JSON Output and Status"
-Cohesion: 0.36
-Nodes (7): Task 9: `--json` — selesai, Jalur yang belum dites otomatis, cmd_list(), cmd_status(), _emit(), main(), row_json()
+### Community 42 - "Release Review and Verification"
+Cohesion: 0.16
+Nodes (9): Diperbaiki, Important: dua refresh yang selesai bersamaan menggandakan kartu (`src/agyswap/tui.py`, `_show`), Low (security): cache `setup-uv` di job build rilis (`.github/workflows/publish.yml`), Review rilis 0.3.0 (2026-10-09), Rilis, Suggestion yang tidak diambil, Verifikasi, Yang wajib dicek (+1 more)
 
 ### Community 43 - "Shipping and Versioning Skills"
 Cohesion: 0.25
@@ -268,33 +269,53 @@ Nodes (6): /agyswap-review, Cakupan, Fan-out paralel, Lima sumbu, Method, Refere
 Cohesion: 0.33
 Nodes (6): 1. Correctness, 2. Readability & Simplicity, 3. Architecture, 4. Security, 5. Performance, The Five-Axis Review
 
-### Community 46 - "Step-by-Step Review Process"
+### Community 46 - "Review Process Steps"
 Cohesion: 0.33
 Nodes (6): Review Process, Step 1: Understand the Context, Step 2: Review the Tests First, Step 3: Review the Implementation, Step 4: Categorize Findings, Step 5: Verify the Verification
 
-### Community 47 - "Accessibility Navigation Checks"
+### Community 47 - "Accessibility Content Checks"
 Cohesion: 0.33
 Nodes (6): Content, Essential Checks, Forms, Keyboard Navigation, Screen Readers, Visual
 
+### Community 48 - "Store Integrity and Security"
+Cohesion: 0.17
+Nodes (8): Perbaikan temuan review dan ship (2026-10-08), test_corrupt_store_is_a_swap_error(), test_keyring_read_failure_is_not_signed_out(), test_list_exits_1_when_every_account_fails(), test_locked_store_is_exclusive(), test_requests_never_follow_redirects(), test_save_store_leaves_no_temp_file(), test_tui_targets_accounts_by_email_and_escapes_markup()
+
+### Community 49 - "TUI Export and Security"
+Cohesion: 0.25
+Nodes (8): Perbaikan review rilis 0.3.0 — selesai, Medium (security): export dari TUI menaruh refresh token di cwd (`tui.py`, `action_export`), _abspath(), done(), done(), done(), _export(), test_tui_best_and_auto_use_the_cli_defaults_and_messages()
+
+### Community 50 - "Import Validation and Security"
+Cohesion: 0.29
+Nodes (6): Low (security): escape sequence dari file import (`cli.py`, `_valid_entry`, `_valid_alias`, `cmd_import`), cmd_import(), _printable(), _read_export(), _valid_alias(), _valid_entry()
+
+### Community 51 - "CLI Interactive Tests"
+Cohesion: 0.31
+Nodes (9): CLI, test_bare_agyswap_without_tty_exits_2(), test_email_of_garbage(), test_remove_asks_and_cancels_on_no(), test_remove_ctrl_d_or_ctrl_c_cancels(), test_remove_enter_defaults_to_no(), test_remove_warns_for_active_account_and_removes_on_yes(), test_remove_without_tty_needs_yes() (+1 more)
+
+### Community 53 - "Build Logs and Tasks"
+Cohesion: 0.29
+Nodes (6): Build log: gelombang 2026-10-09 (paritas CLI–TUI dan rapikan TUI), Ditunda, Task 1: Kursor selalu terlihat — selesai, Task 4: Default nama file export — selesai, Task 5: Loading, toast, scrollbar — selesai, Task 6: Dokumen — selesai
+
 ## Knowledge Gaps
-- **392 isolated node(s):** `Common Rationalizations`, `Contract-First Slicing`, `Correctness`, `Definition of Done vs. Acceptance Criteria`, `Documentation` (+387 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 495 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **3 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **390 isolated node(s):** `Common Rationalizations`, `Contract-First Slicing`, `Correctness`, `Definition of Done vs. Acceptance Criteria`, `Documentation` (+385 more)
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 513 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **4 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `Yang wajib dicek, yang terlewat oleh review generik` connect `Release Review and Invariants` to `Review Methodology Skills`?**
-  _High betweenness centrality (0.118) - this node is a cross-community bridge._
-- **Why does `/agyswap-review` connect `Review Methodology Skills` to `Release Review and Invariants`?**
-  _High betweenness centrality (0.117) - this node is a cross-community bridge._
-- **Why does `locked_store()` connect `Release Review and Invariants` to `CLI Argument Parsing`, `System Specifications and Boundaries`, `Export and Exception Handling`, `Import and Export Commands`, `Usage Cache Management`, `Usage and Quota Monitoring`, `Module Specifications and Security`, `Build Logs and Aliasing`, `Agent Workflow and Contributing`?**
-  _High betweenness centrality (0.109) - this node is a cross-community bridge._
-- **Are the 17 inferred relationships involving `collect_usage()` (e.g. with `Task 1: Alias — selesai` and `Task 2: Disable/enable — selesai`) actually correct?**
-  _`collect_usage()` has 17 INFERRED edges - model-reasoned connections that need verification._
+- **Why does `locked_store()` connect `Account Command Logic` to `CLI Argument Parsing`, `CLI and TUI Parity`, `Capability Map and Specs`, `Store Persistence and Export`, `Private Directory Management`, `Release Review and Verification`, `Usage Cache and Quotas`, `Import Validation and Security`, `Module Specifications and Boundaries`?**
+  _High betweenness centrality (0.122) - this node is a cross-community bridge._
+- **Why does `Yang wajib dicek, yang terlewat oleh review generik` connect `Account Command Logic` to `Review Methodology Skills`?**
+  _High betweenness centrality (0.115) - this node is a cross-community bridge._
+- **Why does `/agyswap-review` connect `Review Methodology Skills` to `Account Command Logic`?**
+  _High betweenness centrality (0.114) - this node is a cross-community bridge._
 - **Are the 31 inferred relationships involving `Gelombang v0.2.0` (e.g. with `cmd_add()` and `pick_account()`) actually correct?**
   _`Gelombang v0.2.0` has 31 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 10 inferred relationships involving `SwapError` (e.g. with `Invariants` and `Temuan review v0.2.0 (persiapan rilis 0.3.0) — selesai`) actually correct?**
+  _`SwapError` has 10 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `Common Rationalizations`, `Contract-First Slicing`, `Correctness` to the rest of the system?**
-  _392 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `Incremental Build Rules` be split into smaller, more focused modules?**
-  _Cohesion score 0.05263157894736842 - nodes in this community are weakly interconnected._
+  _390 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Should `CLI Argument Parsing` be split into smaller, more focused modules?**
+  _Cohesion score 0.10869565217391304 - nodes in this community are weakly interconnected._

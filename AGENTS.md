@@ -10,7 +10,7 @@ agyswap (`agyswap`) switches between multiple Google accounts for the **Antigrav
 
 - `src/agyswap/cli.py`: the store, the quota cache (`usage.json`), keyring access, commands (`add`, `list`/`ls`, `status`, `switch`, `alias`, `disable`, `enable`, `auto`, `export`, `import`, `remove`/`rm`, `tui`), account picking (`pick_account`), JSON output, and the rendering shared with the TUI. Running bare `agyswap` in a TTY opens the TUI.
 - `src/agyswap/usage.py`: token refresh and quota fetching.
-- `src/agyswap/tui.py`: the Textual dashboard. Keys: `enter`/`s` switch, `a` add, `d` remove (confirmed), `x` disable/enable, `r` refresh, `j`/`k`, `q`. The look is a user decision; keep it unless asked: the pitch-black theme (`#000000`), the centered title `agyswap - Antigravity CLI Accounts Swap`, the selected card in solid blue `#0178d4`, the orange accent `#ffa62b` (title, `● active`, footer key badges) on a `#141414` footer aligned with the status line, and the command palette disabled.
+- `src/agyswap/tui.py`: the Textual dashboard. Keys: `enter`/`s` switch, `a` add, `d` remove (confirmed), `x` disable/enable, `n` alias, `m` more (a modal listing `b` switch best, `u` auto, `e` export, `i` import; those keys also work directly and stay out of the footer), `r` refresh all, `j`/`k`, `q`. The look is a user decision; keep it unless asked: the pitch-black theme (`#000000`), the centered title `agyswap - Antigravity CLI Accounts Swap`, the selected card in solid blue `#0178d4`, the orange accent `#ffa62b` (title, `● active`, footer key badges) on a `#141414` footer aligned with the status line, and the command palette disabled.
 - `tests/test_swap.py`: pytest tests using a fake keyring. They never touch the real keyring or the network.
 
 Repo-level files:
@@ -48,7 +48,7 @@ The full map, with evidence, is in `architecture/OBSERVE.md`. Summary:
 - Before switching, copy the live keyring token back into its slot, because agy refreshes tokens hourly.
 - `add --slot N` must not clobber a different account. Moving the same account to a new slot is allowed.
 - Every store mutation goes through `locked_store()` (flock on `~/.agyswap/.lock`). Usage refresh runs its network fetch unlocked, then merges newer tokens into a fresh read under the lock.
-- `~/.agyswap/accounts.json` holds refresh tokens. Write it atomically with mode 0600.
+- `~/.agyswap/accounts.json` holds refresh tokens. Write it atomically with mode 0600, in a folder kept at 0700 and owned by the user (`_private_dir` tightens an existing one and refuses someone else's).
 - Refuse to switch while a non-updater `agy` process is running (`--ignore-running` overrides). A running agy re-saves its own token.
 - `switch --force` only skips copying the live token back into its slot. It never skips saving an unstored live login.
 - `remove` asks `[y/N]` on a TTY (Enter, Ctrl-D and Ctrl-C mean no) and refuses without `--yes`/`-y` otherwise. It reads the keyring once to warn when the account is the active one (a user decision). The TUI uses its own confirmation modal and calls `cmd_remove` directly.
@@ -57,6 +57,7 @@ The full map, with evidence, is in `architecture/OBSERVE.md`. Summary:
 - `usage.json` holds quota only, never tokens. It and `accounts.json` are written by `_write_private` under the same `locked_store()` lock.
 - A rejected refresh token (`TokenRevoked`) only disables the account (`disabled_reason: token revoked`), and only if the stored token is still the one that was rejected. Nothing deletes an account except `remove`. `add` lifts a `token revoked` mark but keeps a `manual` one and the alias.
 - `export` writes refresh tokens to a new file with `O_EXCL | O_NOFOLLOW` and mode 0600; `import` validates the whole file (each token's `email` claim must match its entry) before writing, and never writes the keyring.
+- The CLI and the TUI each give their own instructions. A `SwapError` that names a CLI command or flag also carries `tui=` with the TUI key instead (`str(e)` for the CLI, `e.tui` for the TUI); text shared by both (row errors) names neither.
 - No exception may escape the TUI. Textual's crash report prints locals, which hold tokens and the client secret. TUI handlers catch `Exception`, show `SwapError` text or the exception type only, and call the UI outside the `except` block so the original error is never chained. `usage._post` turns read-time network errors into `UsageError`, and `_secret_tool` turns a keyring timeout into `SwapError`. A `secret-tool lookup` that fails with stderr is a `SwapError`, not "signed out"; only a silent exit 1 means no login.
 
 ## Safety rules for agents
@@ -81,6 +82,12 @@ graphify update . && graphify label . --backend=gemini
 ```
 
 Ruff also formats code blocks inside Markdown, so `[tool.ruff] extend-exclude` keeps it out of the generated or vendored `docs/`, `skills/`, and `graphify-out/`; never drop that exclusion. Python 3.12+ and stdlib, plus `textual` and `rich`. Linux only for now (`secret-tool`, `fcntl`, `pgrep`). The version lives only in `pyproject.toml`; `__init__.py` reads it through `importlib.metadata`. The PyPI distribution is `agyswap-cli` (PyPI rejected `agyswap` as too similar to an existing `agy-swap`); the command and the import package stay `agyswap`.
+
+Textual pitfalls seen in this repo (Textual 8.2.8):
+
+- `ListView.clear()`/`extend()` only finish after an `await`. Setting `index` before that highlights an item that is being removed, so the cursor disappears. `_show` awaits both, under `_show_lock`, because two refreshes can finish together and interleave into duplicate cards.
+- A running TUI captures stdout and stderr. A `print` or stderr warning from a `cmd_*` called by the TUI is never seen, so anything the user must read goes into the returned message or `SwapError.tui`.
+- `app.run_test()` disables notifications. Pass `notifications=True` to see `Toast` widgets in a pilot.
 
 ## Agent workflow
 

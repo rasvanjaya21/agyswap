@@ -1,8 +1,33 @@
 # Observasi agy
 
-- agy: 1.3.1 (`~/.local/bin/agy`, binary Go), diobservasi 2026-10-08 (sebelumnya 1.3.0, 2026-10-06)
+- agy: 1.3.3 (`~/.local/bin/agy`, binary Go), diobservasi 2026-10-11 (sebelumnya 1.3.1 2026-10-08, 1.3.0 2026-10-06). Windows: `cli_windows_x64.exe` 1.3.3, analisis statis saja (tidak dijalankan)
 - Lingkungan: Fedora 43, `gnome-keyring-48.0-3.fc43` (Secret Service)
 - Disusun dari sesi pembuatan agyswap dan tiga putaran `/agyswap-observe` (kuota per window, isolasi sesi, agy 1.3.1 dan kuota habis). Observasi ulang setiap kali `agy --version` berubah.
+
+## Windows (agy 1.3.3, analisis statis)
+
+Laporan user: `uv tool install agyswap-cli` 0.3.1 di Windows langsung gagal saat import: `ModuleNotFoundError: No module named 'fcntl'` (`cli.py` baris 11). Peta di bawah dari binary Windows resmi dan `install.ps1`, tanpa menjalankan agy di Windows.
+
+| Kondisi | Bukti | Implikasi untuk agyswap |
+| ------- | ----- | ------------------------ |
+| Binary Windows tersedia publik: manifest `GET https://antigravity-cli-auto-updater-974169037036.us-central1.run.app/manifests/windows_amd64.json` → `version 1.3.3`, URL `…/windows-x64/cli_windows_x64.exe`; `windows_arm64` juga ada di installer | `curl` manifest (tanpa token); sha512 binary cocok dengan manifest; `PE32+ executable … x86-64` | Observasi Windows berikutnya bisa ulang resep ini |
+| Installer menaruh agy di `%LOCALAPPDATA%\agy\bin\agy.exe` | `install.ps1` (`https://antigravity.google/cli/install.ps1`): `$TARGET_DIR = Join-Path $env:LOCALAPPDATA "agy\bin"`, `$binaryPath = … "agy.exe"` | Nama proses `agy.exe`; `shutil.which("agy")` menemukannya lewat `PATHEXT` kalau ada di `PATH`, fallback `%LOCALAPPDATA%\agy\bin\agy.exe` (bukan `~/.local/bin/agy`) |
+| Token disimpan lewat `zalando/go-keyring` backend `windowsKeychain` → `danieljoos/wincred` (Windows Credential Manager, `CredReadW`/`CredWriteW`/`CredDeleteW`), bukan Secret Service | String binary: `keyring.windowsKeychain.Get/Set/Delete/credName`, `keyring_windows.go`, `wincred.GetGenericCredential`, `wincred.NewGenericCredential`, `CredReadW`, `CredWriteW` | Windows butuh backend keyring sendiri; `secret-tool` tidak ada |
+| Nama item: generic credential `TargetName = "gemini:antigravity"` (`service + ":" + username`), `UserName = "antigravity"`, `Persist = CRED_PERSIST_LOCAL_MACHINE` | Source upstream `zalando/go-keyring` `keyring_windows.go` (`credName` → `service + ":" + username`, `cred.UserName = username`) dan `danieljoos/wincred` `NewGenericCredential` (`Persist = PersistLocalMachine`); binary tanpa modinfo (vendored `v/v0`), jadi versi pasti tidak terbaca | Baca/tulis lewat `ctypes` `advapi32` (stdlib), `CRED_TYPE_GENERIC` |
+| Nilai = `CredentialBlob` berisi byte UTF-8 mentah dari JSON token yang sama dengan Linux (`[]byte(password)`, dibaca `string(cred.CredentialBlob)`), bukan UTF-16 | `keyring_windows.go` `Get`/`Set` | Encode/decode blob sebagai UTF-8, bukan UTF-16 seperti library `keyring` Python |
+| `Set` menolak nilai > 2560 byte (`data passed to Set was too big`); JSON token yang tersimpan sekarang 1674–1696 byte | String binary `data passed to Set was too big`; `keyring_windows.go`; panjang token di store (angka saja) | Tolak menulis token > 2560 byte dengan pesan jelas, jangan biarkan Credential Manager memotong |
+| Fallback file tetap ada di build Windows: `Keyring SaveToken/LoadToken timed out after %v, falling back to file storage`, `Using file-based token storage because %s detected`, detektor `container`/`dbus`/`ssh`/`termux`/`wsl` | String binary Windows, file `composite_token_storage.go`, `keyring_detector_*.go` | Sama dengan Linux: fallback file tidak didukung |
+| Client secret, endpoint kuota, dan host sama dengan Linux: dua `GOCSPX-…` dengan hash identik dengan binary Linux 1.3.3, `v1internal:retrieveUserQuotaSummary`, `v1internal:fetchAvailableModels`, `daily-cloudcode-pa`, `oauth2.googleapis.com/token` | Probe string kedua binary (hash 8 karakter, bukan nilai) | `_agy_client_secrets` dan `usage.py` jalan apa adanya, asal path binary benar |
+| `--bg-updater` juga ada di build Windows | String binary `bg-updater` | Deteksi proses tetap harus mengecualikan updater; `pgrep` tidak ada di Windows, butuh command line proses (`Win32_Process.CommandLine`) |
+| Dependensi Linux di agyswap 0.3.1: `fcntl` (import modul, langsung crash), `secret-tool`, `pgrep`, `os.getuid`/`st_uid` dan mode `0o700`/`0o600` di `_private_dir`, `os.O_NOFOLLOW` (tidak ada di Windows) | `grep` `src/agyswap/cli.py` baris 11, 62–64, 89–94, 117–160; `usage.py` baris 99 | Semua perlu cabang Windows; isolasi file di Windows datang dari ACL profil user, bukan mode bit |
+
+## Perubahan 1.3.1 → 1.3.3 (Linux)
+
+| Kondisi | Bukti | Implikasi untuk agyswap |
+| ------- | ----- | ------------------------ |
+| Alur auth sama: `keyringAuth: loaded token … expired=false` → `ChainedAuth: authenticated via keyring (effective: keyring)` → `applyAuthResult: … authMethod=consumer` | Log `cli-20261010_232304.log` (`Language server version: 1.3.3`) | Tidak ada perubahan `src/` |
+| String yang dipakai agyswap masih ada (`zalando/go_keyring`, `composite_token_storage.go`, kedua endpoint kuota, `daily-cloudcode-pa`, `oauth2.googleapis.com/token`), tetap dua client secret | Probe string binary Linux 1.3.3 | — |
+| Saat observasi, keyring kosong (`secret-tool lookup … | wc -c` → `0`): agy sedang logout | `secret-tool lookup` | Validasi Windows/Linux berikutnya butuh user login dulu |
 
 ## Perubahan 1.3.0 → 1.3.1
 
@@ -105,7 +130,9 @@
 - Diff string binary dan changelog 1.3.0 → 1.3.1: binary lama tidak tersimpan dan changelog lokal berhenti di 1.2.14.
 - Apakah kuota per window berbeda antar tier akun (free vs berbayar). Kedua akun yang diamati memakai tier yang sama.
 - Kode error saat refresh token benar-benar di-revoke (diasumsikan `invalid_grant`, belum pernah terjadi).
-- Perilaku di macOS (Keychain) dan Windows (Credential Manager).
+- Perilaku di macOS (Keychain).
+- Windows dijalankan sungguhan: item `gemini:antigravity` benar-benar muncul di Credential Manager setelah login, isi blob UTF-8, `/logout` menghapusnya, agy membaca ulang item yang ditulis pihak lain, dan command line proses `agy.exe` (termasuk `--bg-updater`). Semua di atas berasal dari string binary dan source upstream; butuh user dengan mesin Windows.
+- Windows ARM64 (`windows_arm64` di installer) belum diperiksa.
 - Path dan format file token saat agy memakai penyimpanan file (D-Bus tidak terjangkau), dan apakah file itu berada di dalam `--gemini_dir`. Mengamatinya butuh satu login OAuth di sesi terisolasi oleh user.
 
 ## Validasi

@@ -15,5 +15,6 @@ Hanya yang masih rusak atau belum diputuskan. Rencana kerja masuk `architecture/
 
 ## Platform
 
-- Hanya Linux (`secret-tool`, `fcntl`, `pgrep`). Keychain macOS dan Credential Manager Windows belum ada.
+- Hanya Linux (`secret-tool`, `fcntl`, `pgrep`). Keychain macOS belum ada.
+- **Windows rusak di 0.3.1** (laporan user): `uv tool install agyswap-cli` lalu `agyswap` → `ModuleNotFoundError: No module named 'fcntl'` (`cli.py` import `fcntl` di level modul). Peta Windows sudah ada di `architecture/OBSERVE.md` ("Windows (agy 1.3.3, analisis statis)"): Credential Manager `gemini:antigravity`, blob UTF-8 ≤ 2560 byte, `%LOCALAPPDATA%\agy\bin\agy.exe`. Belum di-spec/build. User akan melanjutkan dari mesin Windows (observasi sungguhan, lalu spec → build → validasi).
 - Fallback file token agy belum didukung (path belum terobservasi, lihat `architecture/OBSERVE.md`).

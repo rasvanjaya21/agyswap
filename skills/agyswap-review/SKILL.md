@@ -61,7 +61,7 @@ Kategorikan temuan sebagai Critical, Important, atau Suggestion, masing-masing d
 
 # Method
 
-Prosedur di bawah di-vendor dari `addyosmani/agent-skills` (`skills/code-review-and-quality`) pada commit `1401c8b`. Bagian agyswap di atas menang setiap kali keduanya bertentangan.
+Prosedur di bawah di-vendor dari `addyosmani/agent-skills` (`skills/code-review-and-quality`) pada commit `aeac41d`. Bagian agyswap di atas menang setiap kali keduanya bertentangan.
 
 ## Code Review and Quality
 
@@ -664,14 +664,16 @@ npx vite-bundle-visualizer
 
 # Check bundle size
 npx bundlesize
+```
 
-# Web Vitals in code
+```javascript
+// Web Vitals in code
 import { onLCP, onINP, onCLS } from 'web-vitals';
 onLCP(console.log);
 onINP(console.log);
 onCLS(console.log);
 
-# INP with interaction-level detail (attribution build)
+// INP with interaction-level detail (attribution build)
 import { onINP } from 'web-vitals/attribution';
 onINP(({ value, attribution }) => {
   const { interactionTarget, inputDelay, processingDuration, presentationDelay } = attribution;

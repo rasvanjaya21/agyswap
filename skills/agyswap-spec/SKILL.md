@@ -29,7 +29,7 @@ Simpan spec di `architecture/SPEC.md` dan konfirmasi ke user sebelum lanjut ke `
 
 # Method
 
-Prosedur di bawah di-vendor dari `addyosmani/agent-skills` (`skills/spec-driven-development`) pada commit `1401c8b`. Bagian agyswap di atas menang setiap kali keduanya bertentangan — termasuk lokasi file: `architecture/SPEC.md`, bukan `SPEC.md` di root.
+Prosedur di bawah di-vendor dari `addyosmani/agent-skills` (`skills/spec-driven-development`) pada commit `aeac41d`. Bagian agyswap di atas menang setiap kali keduanya bertentangan — termasuk lokasi file: `architecture/SPEC.md`, bukan `SPEC.md` di root.
 
 ## Spec-Driven Development
 

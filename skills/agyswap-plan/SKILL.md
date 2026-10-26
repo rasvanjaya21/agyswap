@@ -25,7 +25,7 @@ Langkah verifikasi setiap task harus berupa perintah yang benar-benar ada di rep
 
 # Method
 
-Prosedur di bawah di-vendor dari `addyosmani/agent-skills` (`skills/planning-and-task-breakdown`) pada commit `1401c8b`. Bagian agyswap di atas menang setiap kali keduanya bertentangan — termasuk lokasi file: `architecture/PLAN.md`, bukan `tasks/plan.md` atau `tasks/todo.md`.
+Prosedur di bawah di-vendor dari `addyosmani/agent-skills` (`skills/planning-and-task-breakdown`) pada commit `aeac41d`. Bagian agyswap di atas menang setiap kali keduanya bertentangan — termasuk lokasi file: `architecture/PLAN.md`, bukan `tasks/plan.md` atau `tasks/todo.md`.
 
 ## Planning and Task Breakdown
 

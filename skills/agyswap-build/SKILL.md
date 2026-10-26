@@ -44,7 +44,7 @@ Catat hasilnya di `architecture/BUILD.md`: per task, apa yang diimplementasikan,
 
 # Method
 
-Prosedur di bawah di-vendor dari `addyosmani/agent-skills` (`skills/incremental-implementation`) pada commit `1401c8b`. Bagian agyswap di atas menang setiap kali keduanya bertentangan.
+Prosedur di bawah di-vendor dari `addyosmani/agent-skills` (`skills/incremental-implementation`) pada commit `aeac41d`. Bagian agyswap di atas menang setiap kali keduanya bertentangan.
 
 ## Incremental Implementation
 

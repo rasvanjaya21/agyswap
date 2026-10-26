@@ -38,7 +38,7 @@ Tulis gambaran coverage ke `architecture/TEST.md`: apa yang dibuktikan setiap te
 
 # Method
 
-Prosedur di bawah di-vendor dari `addyosmani/agent-skills` (`skills/test-driven-development`) pada commit `1401c8b`. Bagian agyswap di atas menang setiap kali keduanya bertentangan — contoh Jest dan React Testing Library di sana diterjemahkan ke pytest.
+Prosedur di bawah di-vendor dari `addyosmani/agent-skills` (`skills/test-driven-development`) pada commit `aeac41d`. Bagian agyswap di atas menang setiap kali keduanya bertentangan — contoh Jest dan React Testing Library di sana diterjemahkan ke pytest.
 
 ## Test-Driven Development
 

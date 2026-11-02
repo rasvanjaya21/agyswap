@@ -78,6 +78,16 @@ git push origin v0.3.2
 # setujui job publish di tab Actions (environment pypi)
 ```
 
+## Hasil publish
+
+Rilis 0.3.2 terbit pada 2026-11-02 setelah disetujui user di environment `pypi`:
+
+| Versi | Tag | Workflow `Publish to PyPI` | GitHub release | PyPI |
+| --- | --- | --- | --- | --- |
+| 0.3.2 | `v0.3.2` → `61a23e8` | `completed success` (`41385152558`) | `v0.3.2` (Latest) | wheel dan sdist `0.3.2` |
+| 0.3.1 | `v0.3.1` → `8c27060` | `completed success` | `v0.3.1` | wheel dan sdist; deskripsi dengan Discussions |
+| 0.3.0 | `v0.3.0` → `e66a5b6` | `completed success` | `v0.3.0` | wheel dan sdist; deskripsi tanpa Discussions |
+
 ---
 
 ## Rilis Sebelumnya: 0.3.1 (patch)

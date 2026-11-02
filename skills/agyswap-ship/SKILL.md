@@ -80,7 +80,7 @@ Catat versi yang dipilih, daftar commit beserta kategorinya, dan hasil publish d
 
 # Method
 
-Prosedur di bawah di-vendor dari `addyosmani/agent-skills` (`skills/shipping-and-launch`) pada commit `aeac41d`. Bagian agyswap di atas menang setiap kali keduanya bertentangan.
+Prosedur di bawah di-vendor dari `addyosmani/agent-skills` (`skills/shipping-and-launch`) pada commit `301b02b`. Bagian agyswap di atas menang setiap kali keduanya bertentangan.
 
 ## Shipping and Launch
 
@@ -268,7 +268,7 @@ Client metrics:
 
 ```typescript
 // Set up error boundary with reporting
-class ErrorBoundary extends React.Component {
+class ErrorBoundary extends React.Component<React.PropsWithChildren> {
   state = { hasError: false };
 
   static getDerivedStateFromError() {
@@ -451,7 +451,7 @@ Quick reference for WCAG 2.1 AA compliance. Use alongside the `frontend-ui-engin
 - [ ] Tables have `<th>` headers with scope
 
 #### Visual
-- [ ] Text contrast ≥ 4.5:1 (normal text) or ≥ 3:1 (large text, 18px+)
+- [ ] Text contrast ≥ 4.5:1 for normal text or ≥ 3:1 for large text (at least 18pt / 24 CSS px, or 14pt / about 18.67 CSS px when bold). Do not round a failing contrast ratio up to the threshold.
 - [ ] UI components contrast ≥ 3:1 against background
 - [ ] Color is not the only way to convey information
 - [ ] Text resizable to 200% without breaking layout
@@ -491,7 +491,7 @@ Quick reference for WCAG 2.1 AA compliance. Use alongside the `frontend-ui-engin
 
 ```html
 <!-- Explicit label association -->
-<label htmlFor="email">Email address</label>
+<label for="email">Email address</label>
 <input id="email" type="email" required />
 
 <!-- Implicit wrapping -->
@@ -524,7 +524,7 @@ Quick reference for WCAG 2.1 AA compliance. Use alongside the `frontend-ui-engin
 </dialog>
 
 <!-- Loading states -->
-<div aria-busy="true" aria-label="Loading tasks">
+<div role="status" aria-busy="true" aria-label="Loading tasks">
   <Spinner />
 </div>
 ```
@@ -535,7 +535,7 @@ Quick reference for WCAG 2.1 AA compliance. Use alongside the `frontend-ui-engin
 <ul role="list" aria-label="Tasks">
   <li>
     <input type="checkbox" id="task-1" aria-label="Complete: Buy groceries" />
-    <label htmlFor="task-1">Buy groceries</label>
+    <label for="task-1">Buy groceries</label>
   </li>
 </ul>
 ```
@@ -544,7 +544,7 @@ Quick reference for WCAG 2.1 AA compliance. Use alongside the `frontend-ui-engin
 
 ```bash
 # Automated audit
-npx axe-core          # Programmatic accessibility testing
+npx --package=@axe-core/cli axe http://localhost:3000
 npx pa11y             # CLI accessibility checker
 
 # In browser
@@ -841,7 +841,7 @@ For a shared cache, the same idea needs a distributed lock, or `stale-while-reva
 
 ```bash
 # Lighthouse CLI
-npx lighthouse https://localhost:3000 --output json --output-path ./report.json
+npx lighthouse http://localhost:3000 --output json --output-path ./report.json
 
 # Bundle analysis
 npx webpack-bundle-analyzer stats.json
@@ -859,9 +859,10 @@ onLCP(console.log);
 onINP(console.log);
 onCLS(console.log);
 
-// INP with interaction-level detail (attribution build)
-import { onINP } from 'web-vitals/attribution';
-onINP(({ value, attribution }) => {
+// INP with interaction-level detail (attribution build). The attribution build
+// exports the same names, so alias it when both builds share a module.
+import { onINP as onINPWithAttribution } from 'web-vitals/attribution';
+onINPWithAttribution(({ value, attribution }) => {
   const { interactionTarget, inputDelay, processingDuration, presentationDelay } = attribution;
   console.log({ value, interactionTarget, inputDelay, processingDuration, presentationDelay });
 });
@@ -917,7 +918,7 @@ Before reaching for controls, spend five minutes thinking like an attacker:
 
 ### Pre-Commit Checks
 
-- [ ] No secrets in code (`git diff --cached | grep -i "password\|secret\|api_key\|token"`)
+- [ ] No secrets in code (`git diff --cached -i -G'password|secret|api_key|token' --name-only` — lists only the names of files whose staged diff matches, never the value itself; any output means review those files before committing)
 - [ ] `.gitignore` covers: `.env`, `.env.local`, `*.pem`, `*.key`
 - [ ] `.env.example` uses placeholder values (not real secrets)
 

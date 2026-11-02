@@ -61,7 +61,7 @@ Kategorikan temuan sebagai Critical, Important, atau Suggestion, masing-masing d
 
 # Method
 
-Prosedur di bawah di-vendor dari `addyosmani/agent-skills` (`skills/code-review-and-quality`) pada commit `aeac41d`. Bagian agyswap di atas menang setiap kali keduanya bertentangan.
+Prosedur di bawah di-vendor dari `addyosmani/agent-skills` (`skills/code-review-and-quality`) pada commit `301b02b`. Bagian agyswap di atas menang setiap kali keduanya bertentangan.
 
 ## Code Review and Quality
 
@@ -237,6 +237,8 @@ For each file changed:
 ```
 
 #### Step 4: Categorize Findings
+
+Before reporting a finding, check it against the callers, guards and tests that reach the changed code, and drop it if they rule it out. Label defects that already exist in the base separately from regressions this change introduces. Zero findings is a valid result; do not invent one.
 
 Label every comment with its severity so the author knows what's required vs optional:
 
@@ -655,7 +657,7 @@ For a shared cache, the same idea needs a distributed lock, or `stale-while-reva
 
 ```bash
 # Lighthouse CLI
-npx lighthouse https://localhost:3000 --output json --output-path ./report.json
+npx lighthouse http://localhost:3000 --output json --output-path ./report.json
 
 # Bundle analysis
 npx webpack-bundle-analyzer stats.json
@@ -673,9 +675,10 @@ onLCP(console.log);
 onINP(console.log);
 onCLS(console.log);
 
-// INP with interaction-level detail (attribution build)
-import { onINP } from 'web-vitals/attribution';
-onINP(({ value, attribution }) => {
+// INP with interaction-level detail (attribution build). The attribution build
+// exports the same names, so alias it when both builds share a module.
+import { onINP as onINPWithAttribution } from 'web-vitals/attribution';
+onINPWithAttribution(({ value, attribution }) => {
   const { interactionTarget, inputDelay, processingDuration, presentationDelay } = attribution;
   console.log({ value, interactionTarget, inputDelay, processingDuration, presentationDelay });
 });
@@ -731,7 +734,7 @@ Before reaching for controls, spend five minutes thinking like an attacker:
 
 ### Pre-Commit Checks
 
-- [ ] No secrets in code (`git diff --cached | grep -i "password\|secret\|api_key\|token"`)
+- [ ] No secrets in code (`git diff --cached -i -G'password|secret|api_key|token' --name-only` — lists only the names of files whose staged diff matches, never the value itself; any output means review those files before committing)
 - [ ] `.gitignore` covers: `.env`, `.env.local`, `*.pem`, `*.key`
 - [ ] `.env.example` uses placeholder values (not real secrets)
 

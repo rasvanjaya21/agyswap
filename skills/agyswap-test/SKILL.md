@@ -38,7 +38,7 @@ Tulis gambaran coverage ke `architecture/TEST.md`: apa yang dibuktikan setiap te
 
 # Method
 
-Prosedur di bawah di-vendor dari `addyosmani/agent-skills` (`skills/test-driven-development`) pada commit `aeac41d`. Bagian agyswap di atas menang setiap kali keduanya bertentangan — contoh Jest dan React Testing Library di sana diterjemahkan ke pytest.
+Prosedur di bawah di-vendor dari `addyosmani/agent-skills` (`skills/test-driven-development`) pada commit `301b02b`. Bagian agyswap di atas menang setiap kali keduanya bertentangan — contoh Jest dan React Testing Library di sana diterjemahkan ke pytest.
 
 ## Test-Driven Development
 
@@ -281,6 +281,8 @@ Preference order (most to least preferred):
 ```
 
 **Use mocks only when:** the real implementation is too slow, non-deterministic, or has side effects you can't control (external APIs, email sending). Over-mocking creates tests that pass while production breaks.
+
+For crash or rollback behavior, exercise the real boundary: an injected exception is not process termination, and a mocked transaction call is not a database rollback.
 
 #### Use the Arrange-Act-Assert Pattern
 
@@ -652,7 +654,8 @@ test('user can create and complete a task', async ({ page }) => {
   await page.getByRole('button', { name: /create/i }).click();
 
   // Verify task appears
-  const task = page.getByRole('listitem', { name: /buy groceries/i });
+  // listitem has no accessible name from its content, so filter by text
+  const task = page.getByRole('listitem').filter({ hasText: /buy groceries/i });
   await expect(task).toBeVisible();
 
   // Complete the task

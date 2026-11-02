@@ -147,6 +147,14 @@ def write_token(token: str) -> None:
 
 
 def email_of(token: str | None) -> str | None:
+    if not token:
+        return None
+    try:
+        tok = json.loads(token)
+    except (TypeError, ValueError):
+        return None
+    if isinstance(tok, dict) and (email := tok.get("id_token_email")):
+        return str(email)
     return claims(token).get("email") or None
 
 
@@ -655,7 +663,9 @@ def _valid_entry(acc: object) -> bool:
         return False
     try:
         tok = json.loads(acc["token"])
-        shape = isinstance(tok["token"]["refresh_token"], str) and isinstance(tok["id_token"], str)
+        has_refresh = isinstance(tok["token"]["refresh_token"], str)
+        has_id = isinstance(tok.get("id_token"), str) or isinstance(tok.get("id_token_email"), str)
+        shape = has_refresh and has_id
     except (KeyError, TypeError, ValueError):
         return False
     reason = acc.get("disabled_reason", "")

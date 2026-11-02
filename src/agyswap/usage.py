@@ -106,7 +106,10 @@ def _scan_client_secrets() -> tuple[str, ...]:
 
 def _agy_client_ids() -> tuple[str, ...]:
     with _secrets_lock:
-        return _scan_client_ids()
+        try:
+            return _scan_client_ids()
+        except UsageError:
+            return ()
 
 
 @lru_cache(maxsize=1)

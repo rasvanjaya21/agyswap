@@ -13,7 +13,9 @@ Ditulis lewat `/agyswap-commit` pada 2026-11-02, setelah observasi dan perbaikan
 | `8593a33` | `docs(agents): update pinned agent-skills commit and document agy 1.4.12 auth` | `AGENTS.md` |
 | `2b17abe` | `docs(architecture): add observation and validation records for agy 1.4.12` | `architecture/OBSERVE.md` |
 | `6606294` | `chore(graph): generated code graph` | `graphify-out/GRAPH_REPORT.md`, `graphify-out/graph.html`, `graphify-out/graph.json` |
-| (commit ini) | `docs(architecture): add prepare and commit records` | `architecture/PREPARE.md`, `architecture/COMMIT.md` |
+| `509ab5f` | `docs(architecture): add prepare and commit records` | `architecture/PREPARE.md`, `architecture/COMMIT.md` |
+| `5911e92` | `fix(usage): handle missing agy binary during client id discovery` | `src/agyswap/usage.py` |
+| (commit ini) | `docs(architecture): update commit record for usage discovery fix` | `architecture/COMMIT.md` |
 
 ## Alasan pengelompokan
 

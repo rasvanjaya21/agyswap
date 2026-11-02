@@ -1774,3 +1774,77 @@ def test_usage_refresh_never_writes_the_keyring(tmp_path, monkeypatch):
     monkeypatch.setattr(cli, "write_token", lambda t: pytest.fail("keyring written during refresh"))
     monkeypatch.setattr(cli, "account_usage", lambda t: (_pools(0.1), _expiring(t, "2099-01-01T00:00:00+00:00")))
     cli.collect_usage()
+
+
+def test_email_of_and_cmd_add_support_agy_1_4_id_token_email(tmp_path, monkeypatch):
+    kr = setup(tmp_path, monkeypatch)
+    token_1_4 = json.dumps(
+        {
+            "token": {
+                "access_token": "acc",
+                "token_type": "Bearer",
+                "refresh_token": "ref",
+                "expiry": "2099-01-01T00:00:00Z",
+                "expires_in": 3599,
+            },
+            "auth_method": "consumer",
+            "id_token_email": "user@example.com",
+        }
+    )
+    assert cli.email_of(token_1_4) == "user@example.com"
+    kr["t"] = token_1_4
+    res = cli.cmd_add()
+    assert "Added account 1: user@example.com" in res
+    store = cli.load_store()
+    assert store["accounts"]["1"]["email"] == "user@example.com"
+
+
+def test_fresh_token_uses_scanned_client_ids_when_azp_missing(monkeypatch):
+    import io
+    import urllib.error
+
+    from agyswap import usage
+
+    monkeypatch.setattr(usage, "_agy_client_ids", lambda: ("CID1", "CID2"))
+    monkeypatch.setattr(usage, "_agy_client_secrets", lambda: ("SEC1",))
+    sent = []
+
+    def fake_post(url, data, headers=None):
+        sent.append(dict(__import__("urllib.parse").parse.parse_qsl(data.decode())))
+        if sent[-1]["client_id"] == "CID1":
+            raise urllib.error.HTTPError(url, 400, "", None, io.BytesIO(b'{"error": "invalid_client"}'))
+        return {"access_token": "refreshed-acc", "expires_in": 3600, "id_token": "refreshed-id"}
+
+    monkeypatch.setattr(usage, "_post", fake_post)
+    tok = json.dumps(
+        {
+            "token": {
+                "access_token": "acc",
+                "token_type": "Bearer",
+                "refresh_token": "ref",
+                "expiry": "2000-01-01T00:00:00Z",
+                "expires_in": 3599,
+            },
+            "auth_method": "consumer",
+            "id_token_email": "user@example.com",
+        }
+    )
+    new_raw = usage.fresh_token(tok)
+    new_tok = json.loads(new_raw)
+    assert [s["client_id"] for s in sent] == ["CID1", "CID2"]
+    assert new_tok["token"]["access_token"] == "refreshed-acc"
+    assert new_tok["id_token"] == "refreshed-id"
+
+
+def test_valid_entry_accepts_id_token_email():
+    entry_1_4 = {
+        "email": "user@example.com",
+        "token": json.dumps(
+            {
+                "token": {"refresh_token": "ref"},
+                "auth_method": "consumer",
+                "id_token_email": "user@example.com",
+            }
+        ),
+    }
+    assert cli._valid_entry(entry_1_4) is True

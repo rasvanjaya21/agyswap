@@ -104,6 +104,21 @@ def _scan_client_secrets() -> tuple[str, ...]:
     return tuple(sorted({m.decode() for m in re.findall(rb"GOCSPX-[A-Za-z0-9_-]{28}", data)}))
 
 
+def _agy_client_ids() -> tuple[str, ...]:
+    with _secrets_lock:
+        return _scan_client_ids()
+
+
+@lru_cache(maxsize=1)
+def _scan_client_ids() -> tuple[str, ...]:
+    path = Path(shutil.which("agy") or Path.home() / ".local/bin/agy")
+    try:
+        data = path.read_bytes()
+    except OSError:
+        raise UsageError(f"agy binary not found at {path}; needed to refresh tokens") from None
+    return tuple(sorted({m.decode() for m in re.findall(rb"[0-9]+-[a-z0-9_]+\.apps\.googleusercontent\.com", data)}))
+
+
 def parse_time(s: str) -> datetime | None:
     # Go writes nanoseconds; fromisoformat takes at most microseconds.
     try:
@@ -135,32 +150,33 @@ def fresh_token(token: str) -> str:
     expiry = parse_time(tok["token"].get("expiry", ""))
     if expiry and expiry > now + timedelta(minutes=2):
         return token
-    client_id = claims(token).get("azp")
-    for secret in _agy_client_secrets():
-        form = urllib.parse.urlencode(
-            {
-                "client_id": client_id,
+    client_ids = (cid,) if (cid := claims(token).get("azp")) else (_agy_client_ids() or (None,))
+    for client_id in client_ids:
+        for secret in _agy_client_secrets():
+            params = {
                 "client_secret": secret,
                 "refresh_token": tok["token"]["refresh_token"],
                 "grant_type": "refresh_token",
             }
-        ).encode()
-        try:
-            r = _post(TOKEN_URL, form)
-        except urllib.error.HTTPError as e:
-            body = e.read()
-            if b"invalid_client" in body:
-                continue  # the binary carries more than one client; try the next
-            if b"invalid_grant" in body:
-                raise TokenRevoked("token revoked, sign in with agy again and add the account") from e
-            raise UsageError(f"token refresh failed (HTTP {e.code})") from e
-        except urllib.error.URLError as e:
-            raise UsageError(f"network error: {e.reason}") from e
-        tok["token"]["access_token"] = r["access_token"]
-        tok["token"]["expiry"] = (now + timedelta(seconds=r["expires_in"])).isoformat()
-        if "id_token" in r:
-            tok["id_token"] = r["id_token"]
-        return json.dumps(tok)
+            if client_id:
+                params["client_id"] = client_id
+            form = urllib.parse.urlencode(params).encode()
+            try:
+                r = _post(TOKEN_URL, form)
+            except urllib.error.HTTPError as e:
+                body = e.read()
+                if b"invalid_client" in body or b"invalid_request" in body:
+                    continue  # the binary carries more than one client; try the next
+                if b"invalid_grant" in body:
+                    raise TokenRevoked("token revoked, sign in with agy again and add the account") from e
+                raise UsageError(f"token refresh failed (HTTP {e.code})") from e
+            except urllib.error.URLError as e:
+                raise UsageError(f"network error: {e.reason}") from e
+            tok["token"]["access_token"] = r["access_token"]
+            tok["token"]["expiry"] = (now + timedelta(seconds=r["expires_in"])).isoformat()
+            if "id_token" in r:
+                tok["id_token"] = r["id_token"]
+            return json.dumps(tok)
     raise UsageError("no agy OAuth client secret accepted this token")
 
 

@@ -1,8 +1,18 @@
 # Observasi agy
 
-- agy: 1.3.3 (`~/.local/bin/agy`, binary Go), diobservasi 2026-10-11 (sebelumnya 1.3.1 2026-10-08, 1.3.0 2026-10-06). Windows: `cli_windows_x64.exe` 1.3.3, analisis statis saja (tidak dijalankan)
+- agy: 1.4.12 (`~/.local/bin/agy`, binary Go), diobservasi 2026-11-02 (sebelumnya 1.3.3 2026-10-11, 1.3.1 2026-10-08, 1.3.0 2026-10-06). Windows: `cli_windows_x64.exe` 1.3.3, analisis statis saja (tidak dijalankan)
 - Lingkungan: Fedora 43, `gnome-keyring-48.0-3.fc43` (Secret Service)
-- Disusun dari sesi pembuatan agyswap dan tiga putaran `/agyswap-observe` (kuota per window, isolasi sesi, agy 1.3.1 dan kuota habis). Observasi ulang setiap kali `agy --version` berubah.
+- Disusun dari sesi pembuatan agyswap dan empat putaran `/agyswap-observe` (kuota per window, isolasi sesi, agy 1.3.1, kuota habis, dan agy 1.4.12). Observasi ulang setiap kali `agy --version` berubah.
+
+## Perubahan 1.3.3 → 1.4.12 (Linux)
+
+| Kondisi | Bukti | Implikasi untuk agyswap |
+| ------- | ----- | ------------------------ |
+| Token di keyring tidak lagi menyertakan `id_token` JWT lengkap; ukuran JSON turun dari ~1690 byte menjadi 563 byte. Email kini disimpan langsung sebagai string di key `id_token_email` pada root JSON. Objek `token` memuat field baru `expires_in: 3599` | Probe `secret-tool lookup` (563 char); bentuk JSON: `{"token": {"access_token", "token_type", "refresh_token", "expiry", "expires_in"}, "auth_method", "id_token_email"}`; string binary Go struct `IDTokenEmail json:"id_token_email,omitempty"` | `claims(token)` mengembalikan `{}` karena key `id_token` absen. `email_of(token)` wajib memeriksa `id_token_email` terlebih dahulu sebelum mencoba claims `id_token`. Tanpa ini, `cmd_add` menganggap agy belum login (`SwapError`) |
+| Client ID OAuth (`azp`) tidak ada di token keyring karena hilangnya `id_token`. Refresh token lewat `https://oauth2.googleapis.com/token` membutuhkan `client_id` yang valid | Probe refresh Google OAuth dengan `client_id=None` ditolak 400 `invalid_client` | Binary agy 1.4.12 memuat 3 client ID Google (`[0-9]+-...apps.googleusercontent.com`) dan 3 client secret (`GOCSPX-...`). Bila `claims(token).get("azp")` tidak ada, scan client ID dari binary (`_agy_client_ids`) dan coba kombinasinya dengan client secrets. Respons refresh mengembalikan `id_token` baru lengkap dengan claims `azp` dan `email` |
+| Validasi import file export `_valid_entry()` menolak entri agy 1.4.12 bila mewajibkan `tok["id_token"]` | `_valid_entry` baris 658 memeriksa `isinstance(tok["id_token"], str)` | Sesuaikan agar menerima `id_token_email` atau `id_token` |
+| Alur autentikasi di log tetap identik | Log `cli-20261102_094459.log`: `keyringAuth: loaded token, expiry=... expired=false` → `ChainedAuth: authenticated via keyring (effective: keyring)` → `applyAuthResult: email=... authMethod=consumer` → `OAuth: authenticated successfully` | Tidak ada perubahan pada alur sesi agy |
+| Endpoint kuota `retrieveUserQuotaSummary` dan Host tetap sama | Probe request POST `https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary` dengan User-Agent `antigravity` sukses merespons groups dan buckets | Tidak ada perubahan endpoint kuota |
 
 ## Windows (agy 1.3.3, analisis statis)
 
@@ -137,6 +147,11 @@ Laporan user: `uv tool install agyswap-cli` 0.3.1 di Windows langsung gagal saat
 
 ## Validasi
 
+- 2026-11-02 (agy 1.4.12, add account dan token refresh): agy 1.4.12 mengubah format penyimpanan token di keyring dengan meniadakan JWT `id_token` dan menyimpan email langsung di `id_token_email` (ukuran berkurang dari ~1690 byte menjadi 563 byte). Akibatnya `email_of()` gagal dan `agyswap add` memunculkan `error: agy is not signed in`. Perbaikan:
+  1. `email_of()` di `src/agyswap/cli.py` membaca `id_token_email` sebelum fallback ke `claims(token)["email"]`.
+  2. `fresh_token()` di `src/agyswap/usage.py` mencari client ID dari binary agy (`_agy_client_ids`) jika `azp` tidak ada dalam claims.
+  3. `_valid_entry()` di `src/agyswap/cli.py` menerima format token baru (`id_token_email` atau `id_token`).
+  Validasi: `AGYSWAP_HOME=$(mktemp -d) uv run agyswap add` berhasil menambahkan akun live dari keyring (`Added account 1: rasvanjaya21@gmail.com`), `status` dan `list` exit 0 dengan kuota per window terbaca normal. Test suite diperluas dengan 3 test baru, 107 passed.
 - 2026-10-09 (TUI scrollbar; bukan perilaku agy): scrollbar daftar akun disembunyikan (`ListView { scrollbar-size: 0 0 }`). Pilot 14 akun di layar 20 baris: lebar scrollbar `0`, dan 12× `down` menggeser `scroll_y` dari 0 ke 24 mengikuti kursor.
 - 2026-10-09 (pesan CLI di TUI; bukan perilaku agy): toast TUI menampilkan `Run \`agyswap enable 1\` first.`. `SwapError` kini membawa `tui=` untuk setiap pesan yang menyebut perintah/flag CLI (akun disabled, agy berjalan, belum login, belum ada akun, target tidak ditemukan, JSON rusak, file export sudah ada); TUI menampilkan `e.tui`. Pesan `TokenRevoked` di kartu akun dibuat netral (`add the account`). Test `test_errors_give_cli_and_tui_their_own_instructions`.
 - 2026-10-09 (TUI toast; bukan perilaku agy): toast tetap di kanan bawah tapi naik dua baris (`ToastRack { margin-bottom: 3 }`, default Textual `1`) supaya tidak menutupi baris status. Pilot dengan `notifications=True` (layar 20 baris): toast `y=14..16`, status `y=18`, footer `y=19`.

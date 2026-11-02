@@ -1,96 +1,90 @@
 # Ship
 
-Ditulis lewat `/agyswap-ship` pada 2026-10-09 untuk rilis **0.3.0**, lalu **0.3.1**.
+Ditulis lewat `/agyswap-ship` pada 2026-11-02 untuk rilis **0.3.2** (sebelumnya 0.3.1 dan 0.3.0 pada 2026-10-09).
 
-## 0.3.1 (patch)
+## 0.3.2 (patch)
 
-Tag `v0.3.0` sudah di-push di `e66a5b6` sebelum commit README Discussions (`cf118af`) masuk, sehingga README di 0.3.0 tidak memuat badge dan link Discussions. Tag `v0.3.0` dilindungi ruleset (tidak bisa dihapus atau dipindah), jadi perubahan itu dirilis sebagai **0.3.1**.
+Rilis perbaikan kompatibilitas untuk Antigravity CLI (`agy`) versi 1.4.12:
+- Mendukung format token baru agy 1.4.12 di keyring (`id_token_email` sebagai ganti JWT `id_token` yang dihilangkan).
+- Menambahkan auto-discovery OAuth client ID dari binary agy saat token refresh bila claim `azp` tidak ada.
+- Menangani fallback graceful saat binary agy tidak ada di runner headless.
+- Validasi import menerima format token baru.
+- Sinkronisasi enam core skills dengan upstream `agent-skills@301b02b`.
 
-| Commit sejak `v0.3.0` | Kategori |
+| Commit sejak `v0.3.1` | Kategori |
 | --- | --- |
-| `cf118af docs(project): add discussions badge and link to readme` | patch |
-| `9b6b4cb docs(architecture): update commit record for discussions readme change` | patch |
+| `013de39 feat(skill): sync core skills with upstream agent-skills@301b02b` | patch |
+| `d761828 feat(usage): scan and try client ids from binary during token refresh` | patch |
+| `0d3706d feat(cli): support agy 1.4.12 id_token_email in email extraction and import validation` | patch |
+| `23acd86 feat(test): add tests for agy 1.4.12 token format, client id fallback and import` | patch |
+| `8593a33 docs(agents): update pinned agent-skills commit and document agy 1.4.12 auth` | patch |
+| `2b17abe docs(architecture): add observation and validation records for agy 1.4.12` | patch |
+| `6606294 chore(graph): generated code graph` | patch |
+| `509ab5f docs(architecture): add prepare and commit records` | patch |
+| `5911e92 fix(usage): handle missing agy binary during client id discovery` | patch |
+| `d44771c docs(architecture): update commit record for usage discovery fix` | patch |
 
-Tidak ada perubahan kode (`src/`, `tests/`, `pyproject.toml` selain versi, `uv.lock` selain versi, `.github/workflows/`) sejak review rilis, jadi review dan cek di bawah tetap berlaku. CI `e66a5b6` lolos; README hanya berubah dua baris.
+Kategori tertinggi adalah **patch**: tidak ada perintah, flag, atau tombol TUI baru. Semua perubahan bersifat backward-compatible dan memperbaiki interaksi dengan agy 1.4.12. Disetujui user sebagai rilis patch.
 
 ## Keputusan: GO
 
 Tidak ada blocker.
 
-- `architecture/REVIEW.md` adalah review rilis (cakupan `git diff v0.2.0`) dengan keputusan "siap rilis". Laporan itu dicatat di `306d570`, dan tidak ada commit kode sesudahnya.
+- `architecture/OBSERVE.md` memuat observasi penuh dan validasi live agy 1.4.12.
 - `TODO.md` tidak memuat temuan Critical, security Critical/High, atau bagian "Blocker rilis". Yang tersisa hanya Low dan Info.
+- Seluruh 107 test unit lolos (termasuk 3 test regresi baru).
+- CI GitHub Actions untuk commit master terakhir (`d44771c`) selesai dan berstatus sukses (`41384687990`).
 
 ## Cek
 
 | Cek | Hasil |
 | --- | --- |
-| `git status` | bersih |
-| `uv sync --locked`, `ruff check`, `ruff format --check`, `pytest` (104 passed), `uv build` | lolos |
-| CI untuk `306d570` (sudah di-push user, `origin/master` sama) | `CI: completed success` (`gh run list`) |
+| `git status` | bersih sebelum release commit |
+| `uv sync --locked`, `ruff check`, `ruff format --check`, `pytest` (107 passed), `uv build` | lolos |
+| CI untuk `d44771c` (sudah di-push user, `origin/master` sama) | `CI: completed success` (run `41384687990`) |
 | Isi wheel | hanya `agyswap/` dan `agyswap_cli-*.dist-info/` |
 | Isi sdist | `.gitignore`, `LICENSE`, `PKG-INFO`, `pyproject.toml`, `README.md`, `src`, `tests`, `uv.lock`; tanpa `.venv`, `docs/`, `skills/`, `architecture/`, `graphify-out/`, `.claude/`, `.agents/`, atau `accounts.json` |
 | `git grep -n -E 'GOCSPX-[A-Za-z0-9_-]{20,}'` | kosong |
 | Versi | hanya di `pyproject.toml`; `__init__.py` membacanya lewat `importlib.metadata` |
-| agy | `1.3.1`, sama dengan `architecture/OBSERVE.md` |
-| Audit dependency | `uvx pip-audit`: `No known vulnerabilities found` (dijalankan saat review) |
-| Uji manual user | dikonfirmasi 2026-10-09: butir 1.1–1.12 (TUI) dan 1.13 (`auto` dua akun sungguhan). Rilis ini tidak mengubah `add`, `switch`, atau format store; folder store `0700` dites otomatis. |
-| Kejelasan CLI/TUI (pengganti accessibility web) | footer menampilkan `s a d x n r q m`, tombol lain ada di modal More; pesan error TUI menyebut tombol perbaikannya (`Press x on it first.`, `Press a first.`) |
-| Proteksi rilis GitHub | environment `pypi` wajib disetujui `rasvanjaya21`, admin bypass mati; ruleset `release tags` aktif untuk `refs/tags/v*` (diverifikasi lewat `gh api`) |
-
-## Versi: 0.3.0 (minor)
-
-Kategori tertinggi adalah **minor**, karena ada tombol TUI baru yang terlihat pemakai. Tidak ada perubahan yang merusak: perintah, flag, format store, dan exit code tetap. Versi disetujui user (butir 2.1).
-
-| Commit | Kategori |
-| --- | --- |
-| `7adb2c2 feat(package): pin hatchling build backend to 1.32.4` | patch |
-| `2184616 feat(workflow): disable uv cache in release build` | patch |
-| `46e0e7f feat(cli): tighten existing store folder to 0700 and refuse one owned by another user` | patch (hardening; folder milik user lain kini ditolak) |
-| `16c84ea feat(cli): add tui wording to errors that name cli commands or flags` | patch |
-| `0f8f931 feat(cli): reject control characters in imported alias and disabled reason` | patch |
-| `4ce57ef feat(usage): remove cli command from revoked token message` | patch |
-| `de30dd3 feat(tui): add alias, more menu with best, auto, export and import, keep cursor on its account and show loading state` | **minor** (tombol TUI baru) |
-| `5f53fbd feat(test): …` | patch |
-| `90a7800 docs(project): …`, `f8d3ead docs(agents): …`, `ad857aa chore(graph): …`, `306d570 docs(architecture): …` | patch |
+| agy | `1.4.12`, sama dengan `architecture/OBSERVE.md` |
+| Audit dependency | `uvx pip-audit`: `No known vulnerabilities found` |
+| Uji manual user | validasi live agy 1.4.12 terverifikasi sukses (`add`, `status`, `list` dengan keyring asli) |
+| Kejelasan CLI/TUI | binding terlihat di footer, error message instruktif |
+| Proteksi rilis GitHub | environment `pypi` trusted publishing, ruleset `release tags` untuk `refs/tags/v*` |
 
 ## Risiko yang diterima
 
 - Temuan Low di `TODO.md`: celah symlink `_private_dir` hanya berlaku kalau `AGYSWAP_HOME` diletakkan di bawah induk yang bisa ditulis user lain; export gagal di filesystem tanpa hard link; `b`/`u` tanpa konfirmasi.
-- `AGYSWAP_HOME` yang sudah ada kini di-chmod `0700`. Kalau seseorang mengarahkannya ke folder bersama, izin folder itu berubah. Hal ini tercatat di README.
+- Windows masih berstatus tidak didukung (issue `fcntl` pada `0.3.1`).
 
 ## Rollback
 
-Versi yang sudah terbit di PyPI tidak bisa ditimpa atau diunggah ulang. Kalau 0.3.0 bermasalah:
+Versi yang sudah terbit di PyPI tidak bisa ditimpa atau diunggah ulang. Kalau 0.3.2 bermasalah:
 
-1. Yank `0.3.0` di PyPI (Manage project → Releases → 0.3.0 → Yank). Pemakai yang mem-pin `==0.3.0` tetap bisa memasangnya, dan `pip install agyswap-cli` kembali ke `0.2.0`.
-2. Perbaiki, lalu rilis `0.3.1` lewat siklus biasa.
+1. Yank `0.3.2` di PyPI (Manage project → Releases → 0.3.2 → Yank). Pemakai yang mem-pin `==0.3.2` tetap bisa memasangnya, dan `pip install agyswap-cli` kembali ke `0.3.1`.
+2. Perbaiki, lalu rilis `0.3.3` lewat siklus biasa.
 
-Store tidak perlu dimigrasi: `0.2.0` membaca store dari `0.3.0` apa adanya.
+Store tidak perlu dimigrasi: `0.3.1` membaca store dari `0.3.2` apa adanya.
 
 ## Perintah rilis
 
-Commit rilis (`chore: release v0.3.0`, berisi `pyproject.toml` dan `uv.lock`) dibuat agent. Selanjutnya dijalankan user:
+Commit rilis (`chore: release v0.3.2`) dibuat agent. Selanjutnya dijalankan user:
 
 ```bash
 git push
 # tunggu CI hijau
-git tag v0.3.1
-git push origin v0.3.1
+git tag v0.3.2
+git push origin v0.3.2
 # setujui job publish di tab Actions (environment pypi)
 ```
 
-Run `Publish to PyPI` untuk `v0.3.0` (`e66a5b6`) disetujui user apa adanya (README lama). README Discussions ikut di 0.3.1.
+---
 
-## Hasil publish
+## Rilis Sebelumnya: 0.3.1 (patch)
 
-Keduanya terbit pada 2026-10-09 setelah disetujui user di environment `pypi`:
+Tag `v0.3.0` sudah di-push di `e66a5b6` sebelum commit README Discussions (`cf118af`) masuk, sehingga README di 0.3.0 tidak memuat badge dan link Discussions. Tag `v0.3.0` dilindungi ruleset (tidak bisa dihapus atau dipindah), jadi perubahan itu dirilis sebagai **0.3.1**.
 
 | Versi | Tag | Workflow `Publish to PyPI` | GitHub release | PyPI |
 | --- | --- | --- | --- | --- |
 | 0.3.0 | `v0.3.0` → `e66a5b6` | `completed success` | `v0.3.0`, 2026-10-09T11:53:33Z | wheel dan sdist; deskripsi tanpa Discussions |
 | 0.3.1 | `v0.3.1` → `8c27060` | `completed success` | `v0.3.1` (Latest), 2026-10-09T11:56:17Z | wheel dan sdist; deskripsi dengan Discussions |
-
-Verifikasi:
-
-- Simple index PyPI (`Cache-Control: no-cache`) memuat `0.1.0, 0.2.0, 0.3.0, 0.3.1`. Endpoint JSON tanpa versi masih menampilkan `0.2.0` sebagai latest karena cache CDN.
-- `uvx --from agyswap-cli==0.3.1 agyswap --version` dengan `AGYSWAP_HOME` sementara menghasilkan `0.3.1`.

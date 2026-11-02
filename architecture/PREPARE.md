@@ -1,6 +1,6 @@
 # Prepare
 
-Ditulis lewat `/agyswap-prepare` pada 2026-10-26, setelah perbaikan sinkronisasi upstream skills dan pembersihan repo. Belum di-commit.
+Ditulis lewat `/agyswap-prepare` pada 2026-11-02, setelah observasi dan perbaikan kompatibilitas agy 1.4.12 (`id_token_email` dan client ID discovery). Belum di-commit.
 
 ## 1. TODO.md
 
@@ -24,19 +24,21 @@ Tidak ada sisa debug:
 
 ## 5. Docs
 
-- `README.md`, `CONTRIBUTING.md`, dan `AGENTS.md` sudah mutakhir.
+- `AGENTS.md` diperbarui dengan catatan format auth agy 1.4.12 (`id_token_email` dan client ID scanning).
+- `architecture/OBSERVE.md` diperbarui dengan hasil observasi dan validasi live agy 1.4.12.
+- `README.md` dan `CONTRIBUTING.md` sudah mutakhir.
 - `docs/`: versi `textual` (8.2.8), `rich` (15.0.0), dan `pytest` (9.1.1) identik dengan `uv.lock`.
 - Pasangan gitmcp di `.mcp.json` dan file di `docs/` tetap 1:1 (`textual`, `rich`, `pytest`).
 
 ## 6. Skills
 
-- `uv run python scripts/skills.py --check` → `up to date with agent-skills@aeac41d`.
-- 6 file core skills di `skills/` sudah tersinkron dengan upstream `addyosmani/agent-skills@aeac41d`.
+- `uv run python scripts/skills.py` diverifikasi; semua core skills sinkron dengan upstream `addyosmani/agent-skills@301b02b`.
+- Bagian agyswap di tiap skill tetap utuh dan tidak bertentangan.
 
 ## 7. Pengetahuan
 
-- Pola kegagalan mingguan CI `Skills upstream` terverifikasi bersumber dari pemeriksaan `scripts/skills.py --check`.
-- Catatan observasi statis Windows agy 1.3.3 sudah tercatat di `architecture/OBSERVE.md` dan `TODO.md`.
+- Format token agy 1.4.12 yang meniadakan `id_token` dan menyimpan `id_token_email` dicatat ke `architecture/OBSERVE.md` dan `AGENTS.md`.
+- Penemuan 3 client IDs di binary agy untuk token refresh dicatat ke `architecture/OBSERVE.md`.
 
 ## 8. Formatter, linter, test, build
 
@@ -45,9 +47,9 @@ Tidak ada sisa debug:
 | `uv sync --locked` | lolos (15 packages audited) |
 | `uv run ruff format .` | 22 file tidak berubah |
 | `uv run ruff check .` | tanpa temuan (bersih) |
-| `uv run pytest -q` | 104 passed in 11.70s |
+| `uv run pytest -q` | 107 passed in 15.29s (3 test baru untuk agy 1.4.x) |
 | `uv build` | berhasil build wheel dan sdist `agyswap_cli-0.3.1` |
 
 ## 9. Graphify
 
-`graphify update .` lalu `graphify label . --backend=gemini`: **971 node, 1679 edge, 56 komunitas**. Semua komunitas memiliki label deskriptif; tidak ada `Community N` mentah.
+`graphify update .` lalu `graphify label . --backend=gemini`: **978 node, 1698 edge, 57 komunitas**. Semua komunitas memiliki label deskriptif; tidak ada `Community N` mentah.

@@ -1,24 +1,30 @@
 # Commit
 
-Ditulis lewat `/agyswap-commit` pada 2026-10-26, setelah `/agyswap-prepare` merapikan repo dan memperbarui graphify. Tanpa trailer co-author atau atribusi. Belum di-push.
+Ditulis lewat `/agyswap-commit` pada 2026-11-02, setelah observasi dan perbaikan kompatibilitas agy 1.4.12, serta sinkronisasi upstream agent-skills. Tanpa trailer co-author atau atribusi. Belum di-push.
 
 ## Commit
 
 | Hash | Pesan | File |
 | --- | --- | --- |
-| `6879508` | `docs(agents): record windows fcntl crash in todo` | `TODO.md` |
-| `debcc84` | `docs(architecture): add static observation for windows and agy 1.3.3` | `architecture/OBSERVE.md` |
-| `958c1b6` | `chore(graph): generated code graph` | `graphify-out/GRAPH_REPORT.md`, `graphify-out/graph.html`, `graphify-out/graph.json` |
+| `013de39` | `feat(skill): sync core skills with upstream agent-skills@301b02b` | `skills/agyswap-build/SKILL.md`, `skills/agyswap-plan/SKILL.md`, `skills/agyswap-review/SKILL.md`, `skills/agyswap-ship/SKILL.md`, `skills/agyswap-spec/SKILL.md`, `skills/agyswap-test/SKILL.md` |
+| `d761828` | `feat(usage): scan and try client ids from binary during token refresh` | `src/agyswap/usage.py` |
+| `0d3706d` | `feat(cli): support agy 1.4.12 id_token_email in email extraction and import validation` | `src/agyswap/cli.py` |
+| `23acd86` | `feat(test): add tests for agy 1.4.12 token format, client id fallback and import` | `tests/test_swap.py` |
+| `8593a33` | `docs(agents): update pinned agent-skills commit and document agy 1.4.12 auth` | `AGENTS.md` |
+| `2b17abe` | `docs(architecture): add observation and validation records for agy 1.4.12` | `architecture/OBSERVE.md` |
+| `6606294` | `chore(graph): generated code graph` | `graphify-out/GRAPH_REPORT.md`, `graphify-out/graph.html`, `graphify-out/graph.json` |
 | (commit ini) | `docs(architecture): add prepare and commit records` | `architecture/PREPARE.md`, `architecture/COMMIT.md` |
 
 ## Alasan pengelompokan
 
-- `docs(agents)` mencatat laporan bug crash `fcntl` di Windows pada versi 0.3.1 ke dalam `TODO.md`.
-- `docs(architecture)` merekam hasil analisis statis binary Windows agy 1.3.3 dan observasi Linux agy 1.3.3 ke dalam `architecture/OBSERVE.md`.
-- `chore(graph)` memperbarui artefak visualisasi dan struktur code graph (`graphify-out/`).
+- `feat(skill)` menyelaraskan enam skill inti dengan upstream `addyosmani/agent-skills@301b02b`.
+- `feat(usage)` menambahkan discovery client ID dari binary agy agar token refresh tetap berfungsi pada agy 1.4.12 saat claim `azp` tidak ada.
+- `feat(cli)` menambahkan dukungan untuk membaca `id_token_email` pada `email_of()` dan `_valid_entry()`, mengatasi error `agy is not signed in` saat `agyswap add`.
+- `feat(test)` menambahkan test regresi untuk format token agy 1.4.x, fallback client ID, dan validasi import.
+- `docs(agents)` memperbarui catatan invariant penyimpanan auth agy 1.4.12 dan pin commit upstream skills di `AGENTS.md`.
+- `docs(architecture)` merekam tabel observasi agy 1.4.12 dan hasil validasi live di `architecture/OBSERVE.md`.
+- `chore(graph)` memperbarui artefak graphify (`graph.json`, `graph.html`, `GRAPH_REPORT.md`) setelah perubahan kode.
 - `docs(architecture)` mencatat laporan tahap prepare dan rekaman commit ini ke `architecture/PREPARE.md` dan `architecture/COMMIT.md`.
-
-Commit upstream sync sebelumnya di sesi ini (`3030330`, `ae914b4`, `d9af519`) tercatat di riwayat git.
 
 ## Tidak di-commit
 
